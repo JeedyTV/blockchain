@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Page Title</title>
+</head>
+<body>
+
+<h1>Block chain interface</h1>
+{% if message %}
+        <p>{{ message }}</p>
+    {% endif %}
+<p>Add a transaction to the chain</p>
+<form action="" method="post">
+  
+  insert key <input type="text" id="fname" name="key" value=""><br>
+  
+  insert value <input type="text" id="lname" name="value" value=""><br><br>
+  <input type="submit" name="s" value="Add">
+</form>
+
+<p>Retrieve the transaction</p>
+<form action="/action_page.php">
+  Insert the related key <input type="text" id="fname" name="fname" value=""><br>
+  <input type="submit" value="Retrieve">
+</form>
+<p>Retrieve all the transaction  </p>
+<form action="/action_page.php">
+  Insert the related key <input type="text" id="fname" name="fname" value=""><br>
+  <input type="submit" value="Retrieve ALL">
+</form>
+
+</body>
+</html>
