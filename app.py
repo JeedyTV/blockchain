@@ -50,20 +50,25 @@ def update_peers():
 def send_peers():
     return jsonify(p._peers)
 
+@app.route('/heartbeat')
+def send_heartbeat():
+    return jsonify({'address': p._address})
+
 @app.route('/keyChain')
 def send_keyChain():
     return jsonify(p._blockchain.rep())
 @app.route('/addNewNode')
 
 def addNewNode():
-    print('b',p._peers)
+    #print('b',p._peers)
     new_peer= request.args.get('address')
     if new_peer not in p._peers:
         p._peers.append(new_peer)
-    print(f" {new_peer} wants to access the network")
-    print('a',p._peers)
-    print(type(p._blockchain))
-    print(p._blockchain.rep())
+        p._heartbeat_count[new_peer] = 0
+    #print(f" {new_peer} wants to access the network")
+    #print('a',p._peers)
+    #print(type(p._blockchain))
+    #print(p._blockchain.rep())
     return jsonify(p._blockchain.last_block.hash())
     
 @app.route('/memoryPool')

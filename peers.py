@@ -6,6 +6,7 @@ import requests
 from collections import Counter
 from blockchain import Block,Blockchain
 from transaction import Transaction
+from threading import Timer,Thread,Event
 
 class Peer:
     def __init__(self, address,miner,bootstrap=None,difficulty=None):
@@ -16,6 +17,9 @@ class Peer:
         self._peers = []
         self._blockchain = None
         self._ready = False
+        self._peers_heartbeat = []
+        self._heartbeat_count = {}
+
         #if first peer create a blockchain for the whole network
         if not bootstrap:
             print("first peer instantiate the whole net")
@@ -27,6 +31,9 @@ class Peer:
         # Bootstrap the chain with the specified bootstrap address.
             print("start the boostraping")
             self._bootstrap(bootstrap) #address ??
+        
+        t = perpetualTimer(3,self._heartbeat)
+        t.start()
 
     def _add_genesis_block(self):
             """Adds the genesis block to your blockchain."""
@@ -48,13 +55,13 @@ class Peer:
                     print("bootstrapping procedure cannot get peers")
                     return
                 hashes = {}
-                print('mes peers',self._peers)
+                #print('mes peers',self._peers)
                 for peer in self._peers:
-                    print("wesh")
+                    #print("wesh")
                     response = requests.get(f'http://{peer}/addNewNode?address={self._address}')
-                    print('"""""""""""',response.json())
+                    #print('"""""""""""',response.json())
                     hashes[peer] = response.json()
-                print('out',hashes)
+                #print('out',hashes)
                 #retrieve most commun hash in the network
                 mostCommunHash = Counter(hashes.values()).most_common(1)[0][0]
                 #retrieve a node with the most commun
@@ -77,12 +84,6 @@ class Peer:
 
             The block flag indicates whether the call should block until the value
             has been put onto the blockchain, or if an error occurred.
-            """
-            """
-            put(key, value): Stores the value with the associated key.
-If a value for key already exists in the store, then a new version of the pair is created with the value value.
-Please make note of the fact that the put operation doesn't necessarily delivers after it has been completed. It may therefore be a good idea to 
-add a callback procedure (or a different mechanism) that is called whenever the key has been added to the system, or if a failure occurred.
             """
 
             transaction = Transaction(self._address, key, value)
@@ -140,8 +141,34 @@ add a callback procedure (or a different mechanism) that is called whenever the 
         """
         raise NotImplementedError
     
-    def alive():
-        pass
+    def _heartbeat(self, removed):
+        try:
+            if not removed:
+                print("-- <3 HEARTBEAT MEASUREMENT <3 --")
+                self._peers_heartbeat = self._peers.copy()
+            
+            print(self._peers) 
+            print(self._peers_heartbeat)
+            print(self._heartbeat_count)
+            print(" ")
+            for peer in self._peers_heartbeat:
+                current_peer = peer
+                requests.get(f'http://{peer}/heartbeat')
+                self._heartbeat_count[peer] = 0
+
+            
+        except Exception:
+            print('A peer doesn\'t respond')
+
+            self._peers_heartbeat.remove(current_peer)
+            self._heartbeat_count[current_peer] += 1
+
+            if self._heartbeat_count[current_peer] == 10:
+                self._peers.remove(current_peer)
+                del self._heartbeat_count[current_peer]
+
+            self._heartbeat(1)
+
 
 #callback = Callback(transaction, self._blockchain)
 class Callback:#retiens que cette transaction a été ajoutée
@@ -167,6 +194,29 @@ class Callback:#retiens que cette transaction a été ajoutée
             if block.contains(self._transaction):
                 return True
         return False
+
+
+
+class perpetualTimer():
+
+   def __init__(self,t,hFunction):
+      self.t=t
+      self.hFunction = hFunction
+      self.thread = Timer(self.t,self.handle_function)
+      self.thread.daemon = True
+
+   def handle_function(self):
+      self.hFunction(0)
+      self.thread = Timer(self.t,self.handle_function)
+      self.thread.start()
+
+   def start(self):
+      self.thread.start()
+
+   def cancel(self):
+      self.thread.cancel()
+
+
 
 if __name__ == "__main__":
     p = Peer(f'localhost:{5000}',False,difficulty=5)
