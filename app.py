@@ -2,6 +2,9 @@ import argparse
 from flask import Flask, render_template,request,jsonify
 from peers import Peer
 from logo import LOGO
+from transaction import Transaction
+import json
+import time
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -27,53 +30,59 @@ app = Flask(__name__)
 def index():
     message = ''
     if request.method == 'POST':
-        value = request.form.get('value')  # access the data inside 
-        key = request.form.get('key')
-        s = request.form.get('s')
-        print(value,key,s)
-        m = request.form.get('printNet')
-        print(m)
+        if request.form.get('s'):
+            value = request.form.get('value')  # access the data inside 
+            key = request.form.get('key')
+            print(value,key)
+            p.put(key,value,time.asctime(),False)
         if request.form.get('printNet'):
             print(p._peers)
         message = 'value add to the block'
-        pp = p._peers
+        
 
     #return render_template('test.html', message=message)
-    return render_template('test.html', pp=pp)
+    return render_template('test.html')
 
 @app.route('/sku')
 def update_peers():
 
     return jsonify({'e':'biatch'})
+    
+@app.route('/addTransaction')
+def newTransaction():
+    print("new trans")
+    t = request.args.get('transaction').replace("\'",'\"')
+    t = json.loads(t)
+    t = Transaction(t['origin'],t['key'],t['value'],t['timestamp'])
+    p.add_transaction(t)
+    return jsonify({'state':'recu'})
 
 @app.route('/peers')
 def send_peers():
     return jsonify(p._peers)
 
-@app.route('/heartbeat')
-def send_heartbeat():
-    return jsonify({'address': p._address})
-
 @app.route('/keyChain')
 def send_keyChain():
     return jsonify(p._blockchain.rep())
-@app.route('/addNewNode')
 
+@app.route('/addNewNode')
 def addNewNode():
-    #print('b',p._peers)
+    print('b',p._peers)
     new_peer= request.args.get('address')
     if new_peer not in p._peers:
         p._peers.append(new_peer)
-        p._heartbeat_count[new_peer] = 0
-    #print(f" {new_peer} wants to access the network")
-    #print('a',p._peers)
-    #print(type(p._blockchain))
-    #print(p._blockchain.rep())
+    print(f" {new_peer} wants to access the network")
+    print('a',p._peers)
+    print(type(p._blockchain))
+    print(p._blockchain.rep())
     return jsonify(p._blockchain.last_block.hash())
     
 @app.route('/memoryPool')
 def sendMemoryPool():
-    return jsonify(p._memoryPool)
+    m = []
+    for i in p._memoryPool:
+        m.append(i.rep())
+    return jsonify({'transaction':m})
 
 if __name__ == "__main__":
     arguments = parse_arguments()
