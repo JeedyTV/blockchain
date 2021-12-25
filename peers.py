@@ -26,7 +26,7 @@ class Peer:
         else:
         # Bootstrap the chain with the specified bootstrap address.
             print("start the boostraping")
-            self._bootstrap(bootstrap)
+            self._bootstrap(bootstrap) #address ??
 
     def _add_genesis_block(self):
             """Adds the genesis block to your blockchain."""
@@ -78,13 +78,22 @@ class Peer:
             The block flag indicates whether the call should block until the value
             has been put onto the blockchain, or if an error occurred.
             """
+            """
+            put(key, value): Stores the value with the associated key.
+If a value for key already exists in the store, then a new version of the pair is created with the value value.
+Please make note of the fact that the put operation doesn't necessarily delivers after it has been completed. It may therefore be a good idea to 
+add a callback procedure (or a different mechanism) that is called whenever the key has been added to the system, or if a failure occurred.
+            """
 
-            transaction = Transaction(...)
-            self._blockchain.add_transaction(self, transaction)
+            transaction = Transaction(self._address, key, value)
+            #Add dans pool
+            self.add_transaction(transaction)
+            #self._blockchain.add_transaction(self, transaction)
             callback = Callback(transaction, self._blockchain)
             if block:
                 callback.wait()
-
+            
+            #self.mine()
             return callback
     
     def add_transaction(self, transaction):
@@ -94,10 +103,17 @@ class Peer:
             If the `mine` method is called, it will collect the current list
             of transactions, and attempt to mine a block with those.
             """
+            #met dans la pool
+            self._memoryPool.append(transaction)
+            #Broadcast
             
 
     def mine(self):
             """Implements the mining procedure."""
+            candidate_block = Block(len(self._blockchain) + 1, self._memoryPool, self._blockchain.last_block.hash())
+            #Y a pas besoin d'un header dans le block, hein ?
+            self._memoryPool = []
+            
             raise NotImplementedError
 
     def retrieve(self, key):
@@ -120,17 +136,22 @@ class Peer:
 
 
 class Callback:
-    def __init__(self, transaction, chain):
+    def __init__(self, transaction, blockchain):
         self._transaction = transaction
-        self._chain = chain
+        self._blockchain = blockchain
 
     def wait(self):
         """Wait until the transaction appears in the blockchain."""
-        raise NotImplementedError
+        while True:
+            if self.completed():
+                break
 
     def completed(self):
         """Polls the blockchain to check if the data is available."""
-        raise NotImplementedError
+        for block in self.blockchain.blocks:
+            if block.contains(self._transaction):
+                return True
+        return False
 
 if __name__ == "__main__":
     p = Peer(f'localhost:{5000}',False,difficulty=5)
