@@ -13,6 +13,6 @@ if response.status_code == 200:
 
     print(type(f))"""
 
-my_dict ={"java":'fzez', "python":112, "c":11}
-print(list(my_dict.keys())[list(my_dict.values()).index('fzez')])
-    
+from logo import LOGO
+
+print(LOGO)
