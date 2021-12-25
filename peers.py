@@ -111,10 +111,19 @@ add a callback procedure (or a different mechanism) that is called whenever the 
     def mine(self):
             """Implements the mining procedure."""
             candidate_block = Block(len(self._blockchain) + 1, self._memoryPool, self._blockchain.last_block.hash())
-            #Y a pas besoin d'un header dans le block, hein ?
-            self._memoryPool = []
-            
-            raise NotImplementedError
+            #Computes hash of candidate block and checks if it is below target.
+            while True:
+                hash = candidate_block.hash()
+                if hash.startswith('0' * self._blockchain.difficulty):
+                    self._memoryPool = []
+                    self._blockchain.add_block(candidate_block)
+                    #Broadcast
+                    """
+                    Upon receiving the new block each node will confirm that the block header hashes to below the target, 
+                    then add this “mined” block on to their blockchain."""
+                    return candidate_block
+                    
+                candidate_block._nonce += 1
 
     def retrieve(self, key):
             """Searches the most recent value of the specified key.
@@ -134,14 +143,20 @@ add a callback procedure (or a different mechanism) that is called whenever the 
     def alive():
         pass
 
-
-class Callback:
+#callback = Callback(transaction, self._blockchain)
+class Callback:#retiens que cette transaction a été ajoutée
+    #called whenever the key has been added to the system, or if a failure occurred.
+    """
+    quand tu prends une transaction et tu la put, elle est mise dans la pool
+    callback attend jusque la transaction soit mise sur la chaîne
+    """
     def __init__(self, transaction, blockchain):
         self._transaction = transaction
         self._blockchain = blockchain
 
     def wait(self):
         """Wait until the transaction appears in the blockchain."""
+        #appelle infiniment quand est-ce que la transaction est
         while True:
             if self.completed():
                 break
