@@ -14,9 +14,9 @@ class Block:
         self._nonce = nonce
     
     def hash(self):
-        block_string = json.dumps(self.__dict__, sort_keys=True)
-        hash = sha256(block_string.encode()).hexdigest()
-        return hash
+        block_string = json.dumps(self._dict(), sort_keys=True)
+        hash_ = sha256(block_string.encode()).hexdigest()
+        return hash_
     
     @property
     def _proof(self):
@@ -44,6 +44,27 @@ class Block:
         }
         return d
     
+    def _dict(self):
+        
+        d = {
+        'address': self._address,
+        'index': self._index,
+        'transactions': self.rep_transactions(),
+        'previous_hash': self._previous_hash,
+        'timestamp': self._timestamp,
+        'nonce': self._nonce
+        }
+        return d
+
+    def __eq__(self, __o: object) -> bool:
+        
+        if self._index == __o._index and self._transactions == __o._transactions and \
+            self._previous_hash ==__o._previous_hash and self._timestamp == __o._timestamp \
+            and self._address == __o._address and self._nonce == __o._nonce:
+           return True
+        else:
+            return False
+    
     def rep_transactions(self):
         l = []
         for i in self._transactions:
@@ -68,7 +89,7 @@ class Blockchain:
     @property
     def last_block(self):
         return self._blocks[-1]
-    
+    @property
     def difficulty(self):
         """Returns the difficulty level."""
         return self._difficulty
@@ -80,8 +101,8 @@ class Blockchain:
         if not block._previous_hash == self.last_block.hash():
             return False
         #Is proof valid ?
-        hash = block.hash()
-        if not hash.startswith('0' * self.difficulty):
+        hash_ = block.hash()
+        if not hash_.startswith('0' * self.difficulty):
             return False
         self._blocks.append(block)
         return True
@@ -129,6 +150,11 @@ class Blockchain:
             'keychain': l
         }
         return d
+    
+    def __str__(self):
+        return str(self.rep())
+    
+
 
 
 if __name__ == "__main__":

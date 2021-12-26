@@ -1,4 +1,5 @@
 import argparse
+from blockchain import Block
 from flask import Flask, render_template,request,jsonify
 from peers import Peer
 from logo import LOGO
@@ -8,6 +9,8 @@ import time
 from colorama import init
 from termcolor import cprint
 from pyfladesk import init_gui
+import threading 
+from threading import Timer,Thread,Event
 from routes import *
 
 init()
@@ -42,11 +45,11 @@ def index():
             print(value,key)
             p.put(key,value,time.asctime(),False)
         if request.form.get('NETWORK'):
-            print(p._peers)
+            return render_template('test.jinja2',p=p._peers)
         message = 'value add to the block'
         
     #return render_template('test.html', message=message)
-    return render_template('test.html')
+    return render_template('test.jinja2')
 
 @app.route('/sku')
 def update_peers():
@@ -72,6 +75,8 @@ def send_heartbeat():
 
 @app.route('/keyChain')
 def send_keyChain():
+    print("**************************** KEYCHAIN ")
+    print(p._blockchain.rep())
     return jsonify(p._blockchain.rep())
 
 @app.route('/addNewNode')
@@ -97,10 +102,27 @@ def sendMemoryPool():
 @app.route('/addNewBlock')
 def addNewBlock():
     print("Entré dans addNewBlock")
-    new_block= request.form.get('block')
-    print(new_block)
-    print("Type new_block")
-    print(type(new_block))
+    
+    nb = request.args.get('block').replace("\'",'\"')
+    print(nb)
+    print(type(nb))
+    print("---")
+    nb = json.loads(nb)
+    transactions = []
+    for t in nb['transactions']:
+        t_ = Transaction(t['origin'],t['key'],t['value'],t['timestamp'])
+        transactions.append(t_)
+
+
+    nb = Block(nb['index'], transactions , nb['previous_hash'] , 
+            nb['nonce'], nb['timestamp'] )
+    nb._address= p._address
+    p.add_block(nb)
+    
+
+    #print(new_block)
+    #print("Type new_block")
+    #print(type(new_block))
     #p._blockchain.add_block(new_block)
     return jsonify(dict())
 
@@ -120,8 +142,15 @@ if __name__ == "__main__":
         p = Peer(f'localhost:{port}',miner,bootstrap=bootstrap)
      
     cprint(LOGO, 'red')
+    thread = threading.Timer(0, p.mine)
+    thread.daemon = True
+    thread.start()
+    
 
-    init_gui(app, port=port, width=1000, height=900,
-             window_title="Key-value Chain", icon="static/favicon-32x32.png")
+    app.run(port=port)
+    
+    
+    #init_gui(app, port=port, width=1000, height=900,
+    #         window_title=f'localhost:{port}', icon="static/favicon-32x32.png")
 
     

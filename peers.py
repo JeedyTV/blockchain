@@ -4,6 +4,8 @@
 import time
 import requests
 from collections import Counter
+
+from requests.models import requote_uri
 from blockchain import Block,Blockchain
 from transaction import Transaction
 from threading import Timer,Thread,Event
@@ -66,20 +68,29 @@ class Peer:
             #retrieve a node with the most commun
             p = list(hashes.keys())[list(hashes.values()).index(mostCommunHash)]
             response = requests.get(f'http://{p}/keyChain')
-            print(response.json())
-            self._blockchain =Blockchain(self,blocks=response.json())
+            #print(response.json())
+            self._blockchain = self._copy(response.json())
+
             response = requests.get(f'http://{p}/memoryPool')
             for i in response.json()['transaction']:
                 t = Transaction(i['origin'],i['key'],i['value'],i['timestamp'])
                 self._memoryPool.append(t)
-            for i in self._memoryPool:
-                print(i)
+            #for i in self._memoryPool:
+            #    print(i)
+            print("%%%%%%%%%%%%%%%%%%%% INSIDE BOOTSTRP")
             print(self._blockchain.rep())
+            self._ready = True
                 
             """except Exception:
                 print("impossible de contazcter le noeud maybee crash ?")
                 exit(1)"""
-    
+
+    def copyBlockchain(self, response):
+        print(response)
+        print(type(response))
+        return Blockchain(self)
+
+
     def put(self, key, value, time,block=True):
             """Puts the specified key and value on the Blockchain.
             The block flag indicates whether the call should block until the value
@@ -115,33 +126,75 @@ class Peer:
                 self._memoryPool.append(transaction)
                 self._broadcastTrans(transaction)
             #Broadcast
+
+    def _broadcastBlock(self,block):
+        
+        for peer in self._peers:
+            try:
+                requests.get(f'http://{peer}/addNewBlock?block={str(block.rep())}')
+
+            except Exception:
+                pass
+
+    def add_block (self, block):
+
+        if block not in self._blockchain._blocks:
+                print("--------------------------- ENTERED")
+                self._blockchain.add_block(block)
+                self._broadcastBlock(block)
+        else:
+            print("++++++++++++++++++++++++ DISCARD")
+            #Broadcast
+        
+
             
             
 
     def mine(self):
             """Implements the mining procedure."""
-            print("Ligne 113: Entré dans mine")
-            candidate_block = Block(len(self._blockchain._blocks) + 1, self._memoryPool, self._blockchain.last_block.hash(), 0)
+
+            if not self._miner:
+                return False
+            
+            if self._memoryPool == [] or not self._ready:
+                time.sleep(1)
+                print("skudala sku")
+                return self.mine()
+
+            print("-- Entré dans mine")
+            print(self._blockchain)
+            time.sleep(2)
+            
+            candidate_block = Block(len(self._blockchain._blocks), self._memoryPool, self._blockchain.last_block.hash(), 0, time.asctime())
+            candidate_block._address = self._address
             print("En train de Compute hash of candidate block and checks if below target")
             #Computes hash of candidate block and checks if it is below target.
             while True:
                 hash = candidate_block.hash()
-                print("Hash")
-                print(hash)
                 if hash.startswith('0' * self._blockchain.difficulty):
                     print("Trouvé below target !!!!!!!!!")
+                    # PRBLM : possibilité d'avoir une transac entre temps de la ligne 138 à mtn
                     self._memoryPool = []
+
                     self._blockchain.add_block(candidate_block)
                     print("On s'apprête à broadcast")
                     #Broadcast
-                    for peer in self._peers:
-                        print("Broadcast à peer " + str(peer._address))
-                        #r = requests.post('https://httpbin.org/post', data={'key': 'value'})
-                        requests.post(f'http://{peer}/addNewBlock', data={'block': candidate_block.rep()})
                     
-                    return candidate_block
+                    for peer in self._peers:
+                        try:
+                            print("Broadcast à peer " + peer)
+                            #r = requests.post('https://httpbin.org/post', data={'key': 'value'})
+                            #requests.post(f'http://{peer}/addNewBlock', data={'block': candidate_block.rep()})
+                            requests.get(f'http://{peer}/addNewBlock?block={str(candidate_block.rep())}')
+                
+                        except Exception as e:
+                            print(e)
+                    print(self._blockchain)
+                    print("-- sortie de mine")
+                    return self.mine()
                     
                 candidate_block._nonce += 1
+            
 
     def retrieve(self, key):
             """Searches the most recent value of the specified key.
