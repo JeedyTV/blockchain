@@ -7,7 +7,7 @@ from collections import Counter
 
 from requests.models import requote_uri
 from blockchain import Block,Blockchain
-from transaction import Transaction
+from transaction import Transaction, Transactions
 from threading import Timer,Thread,Event
 
 class Peer:
@@ -203,13 +203,36 @@ class Peer:
             or implement some indexing schemes if you would like to do something
             more efficient.
             """
-            raise NotImplementedError
+            latest_value = None
+
+            for v in self._blockchain._blocks:
+                if v._transactions != []:
+                    if(v._transactions[0]._key == key):
+                        latest_value = v._transactions[0]._value
+
+            if latest_value != None:
+                print("Latest value for the key : "+key)
+                print(latest_value)
+
+            return latest_value
+
 
     def retrieve_all(self, key):
         """Retrieves all values associated with the specified key on the
         complete blockchain.
         """
-        raise NotImplementedError
+        values = []
+
+        for v in self._blockchain._blocks:
+            if v._transactions != []:
+                if(v._transactions[0]._key == key):
+                    values.append( v._transactions[0]._value)
+
+        if values != []:
+            print("Values for the key : "+key)
+            print(values)
+
+        return values
     
     def _heartbeat(self, removed):
         try:

@@ -29,4 +29,25 @@ class Transaction:
            return True
         else:
             return False
-            
+
+
+class Transactions:
+
+    def __init__(self):
+        
+        self._transactions = []
+        
+
+    @property
+    def last_transactions(self):
+        return self._transactions[-1]
+
+    def add_transaction(self, transaction):
+        self._transactions.append(transaction)
+
+
+    
+    
+
+
+

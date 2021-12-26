@@ -1,7 +1,7 @@
 from hashlib import sha256
 import json
 import time
-from transaction import Transaction
+from transaction import Transaction, Transactions
 
 class Block:
     

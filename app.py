@@ -3,7 +3,7 @@ from blockchain import Block
 from flask import Flask, render_template,request,jsonify
 from peers import Peer
 from logo import LOGO
-from transaction import Transaction
+from transaction import Transaction, Transactions
 import json
 import time
 from colorama import init
@@ -44,12 +44,23 @@ def index():
             key = request.form.get('key')
             print(value,key)
             p.put(key,value,time.asctime(),False)
+
+        if request.form.get('RETRIEVE'):
+            key = request.form.get('key')
+            retrieved_key = p.retrieve(key)
+            return render_template('test.html',retrieve_key = retrieved_key)
+        
+        if request.form.get('RETRIEVE ALL'):
+            key = request.form.get('key')
+            retrieved_keys = p.retrieve_all(key)
+            return render_template('test.html',retrieve_keys = retrieved_keys)
+
         if request.form.get('NETWORK'):
-            return render_template('test.jinja2',p=p._peers)
-        message = 'value add to the block'
+            return render_template('test.html',p=p._peers)
+        #message = 'value add to the block'
         
     #return render_template('test.html', message=message)
-    return render_template('test.jinja2')
+    return render_template('test.html')
 
 @app.route('/sku')
 def update_peers():
