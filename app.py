@@ -94,6 +94,16 @@ def sendMemoryPool():
         m.append(i.rep())
     return jsonify({'transaction':m})
     
+@app.route('/addNewBlock')
+def addNewBlock():
+    print("Entré dans addNewBlock")
+    new_block= request.form.get('block')
+    print(new_block)
+    print("Type new_block")
+    print(type(new_block))
+    #p._blockchain.add_block(new_block)
+    return jsonify(dict())
+
 if __name__ == "__main__":
     arguments = parse_arguments()
     

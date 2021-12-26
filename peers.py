@@ -120,17 +120,25 @@ class Peer:
 
     def mine(self):
             """Implements the mining procedure."""
-            candidate_block = Block(len(self._blockchain) + 1, self._memoryPool, self._blockchain.last_block.hash())
+            print("Ligne 113: Entré dans mine")
+            candidate_block = Block(len(self._blockchain._blocks) + 1, self._memoryPool, self._blockchain.last_block.hash(), 0)
+            print("En train de Compute hash of candidate block and checks if below target")
             #Computes hash of candidate block and checks if it is below target.
             while True:
                 hash = candidate_block.hash()
+                print("Hash")
+                print(hash)
                 if hash.startswith('0' * self._blockchain.difficulty):
+                    print("Trouvé below target !!!!!!!!!")
                     self._memoryPool = []
                     self._blockchain.add_block(candidate_block)
+                    print("On s'apprête à broadcast")
                     #Broadcast
-                    """
-                    Upon receiving the new block each node will confirm that the block header hashes to below the target, 
-                    then add this “mined” block on to their blockchain."""
+                    for peer in self._peers:
+                        print("Broadcast à peer " + str(peer._address))
+                        #r = requests.post('https://httpbin.org/post', data={'key': 'value'})
+                        requests.post(f'http://{peer}/addNewBlock', data={'block': candidate_block.rep()})
+                    
                     return candidate_block
                     
                 candidate_block._nonce += 1

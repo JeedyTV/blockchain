@@ -77,13 +77,13 @@ class Blockchain:
         """Check if block is valid"""
         #Is previous hash the correct one ?
         #rajouter cas ou pluseir block mine en meme temps
-        if not block.previous_block == self.last_block.hash():
+        if not block._previous_hash == self.last_block.hash():
             return False
         #Is proof valid ?
         hash = block.hash()
         if not hash.startswith('0' * self.difficulty):
             return False
-        self.blocks.append(block)
+        self._blocks.append(block)
         return True
 
     def is_valid(self):
