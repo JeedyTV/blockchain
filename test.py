@@ -1,18 +1,25 @@
-"""import requests
-node = 'localhost:5001'
-response = None
-try:
-    
-    response = requests.get(f'http://{node}/addNewNode?address=localhost:5001')
-except Exception:
-    print("mohim")
+#!/usr/bin/env python3
 
-if response.status_code == 200:
-    print(response.json())
-    f = response.json()
+import os
+import sys
+import subprocess
+import os.path
 
-    print(type(f))"""
+from PyQt5 import QtGui
+from PyQt5 import QtCore
 
-from logo import LOGO
+class MyWin(QtGui.QMainWindow):
+    def __init__(self, parent=None):
+        super(MyWin, self).__init__(parent)
+        self.setWindowTitle("My Window")
+        self.setWindowIcon(QtGui.QIcon('static/favicon-32x32.png'))
+        self.show()
 
-print(LOGO)
+def main(args):
+    app = QtGui.QApplication([])
+
+    ww= MyWin()
+    sys.exit(app.exec_())
+
+if __name__ == '__main__':
+    main(sys.argv[1:])

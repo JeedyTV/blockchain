@@ -18,8 +18,9 @@ class Transaction:
             'timestamp': self._timestamp
         }
         return d
+    
     def __str__(self) -> str:
-        print("damso")
+        
         return str(self.rep())
     
     def __eq__(self, __o: object) -> bool:

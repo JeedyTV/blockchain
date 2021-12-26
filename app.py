@@ -5,6 +5,12 @@ from logo import LOGO
 from transaction import Transaction
 import json
 import time
+from colorama import init
+from termcolor import cprint
+from pyfladesk import init_gui
+from routes import *
+
+init()
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -35,11 +41,10 @@ def index():
             key = request.form.get('key')
             print(value,key)
             p.put(key,value,time.asctime(),False)
-        if request.form.get('printNet'):
+        if request.form.get('NETWORK'):
             print(p._peers)
         message = 'value add to the block'
         
-
     #return render_template('test.html', message=message)
     return render_template('test.html')
 
@@ -47,7 +52,7 @@ def index():
 def update_peers():
 
     return jsonify({'e':'biatch'})
-    
+
 @app.route('/addTransaction')
 def newTransaction():
     print("new trans")
@@ -61,20 +66,25 @@ def newTransaction():
 def send_peers():
     return jsonify(p._peers)
 
+@app.route('/heartbeat')
+def send_heartbeat():
+    return jsonify({'address': p._address})
+
 @app.route('/keyChain')
 def send_keyChain():
     return jsonify(p._blockchain.rep())
 
 @app.route('/addNewNode')
 def addNewNode():
-    print('b',p._peers)
+    #print('b',p._peers)
     new_peer= request.args.get('address')
     if new_peer not in p._peers:
         p._peers.append(new_peer)
-    print(f" {new_peer} wants to access the network")
-    print('a',p._peers)
-    print(type(p._blockchain))
-    print(p._blockchain.rep())
+        p._heartbeat_count[new_peer] = 0
+    #print(f" {new_peer} wants to access the network")
+    #print('a',p._peers)
+    #print(type(p._blockchain))
+    #print(p._blockchain.rep())
     return jsonify(p._blockchain.last_block.hash())
     
 @app.route('/memoryPool')
@@ -83,7 +93,7 @@ def sendMemoryPool():
     for i in p._memoryPool:
         m.append(i.rep())
     return jsonify({'transaction':m})
-
+    
 if __name__ == "__main__":
     arguments = parse_arguments()
     
@@ -98,7 +108,10 @@ if __name__ == "__main__":
     else:
         #bootstrap peer  
         p = Peer(f'localhost:{port}',miner,bootstrap=bootstrap)
-    print(LOGO)
-    app.run(host='localhost', port=port)
+     
+    cprint(LOGO, 'red')
+
+    init_gui(app, port=port, width=1000, height=900,
+             window_title="Key-value Chain", icon="static/favicon-32x32.png")
 
     
