@@ -112,6 +112,7 @@ class Blockchain:
                 v = j['value']
                 ts = j['timestamp']
                 t = Transaction(o,k,v,ts)
+                transactions.append(t)
             phash = i['previous_hash']
             n = i['nonce']
             tss = i['timestamp']
