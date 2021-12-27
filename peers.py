@@ -1,108 +1,96 @@
-#rom keychain import Block
-#from keychain import Transaction
-#from keychain import Blockchain
 import time
 import requests
 from collections import Counter
+from requests.models import requote_uri
 from blockchain import Block,Blockchain
 from transaction import Transaction
 from threading import Timer,Thread,Event
+import json
 
 class Peer:
+    
     def __init__(self, address,miner,bootstrap=None,difficulty=None):
         
-        self._address = address
-        self._miner = miner
-        self._memoryPool = []
-        self._peers = []
-        self._blockchain = None
-        self._ready = False
-        self._peers_heartbeat = []
-        self._heartbeat_count = {}
+        self.address = address
+        self.miner = miner
+        self.memoryPool = []
+        self.peers = []
+        self.blockchain = None
+        self.ready = False
+        self.peers_heartbeat = []
+        self.heartbeat_count = {}
 
         #if first peer create a blockchain for the whole network
         if not bootstrap:
             print("first peer instantiate the whole net")
-            self._blockchain = Blockchain(self,difficulty)
             # Initialize the chain with the Genesis block.
-            self._add_genesis_block()
+            b = Block(0,self.address,[],"0",time.asctime())
+            self.blockchain = Blockchain(self,difficulty,b)
+            self.ready = True
         else:
         # Bootstrap the chain with the specified bootstrap address.
             print("start the boostraping")
-            self._bootstrap(bootstrap) #address ??
+            self.bootstrapProc(bootstrap) #address ??
         
-        #t = perpetualTimer(3,self._heartbeat)
-        #t.start()
+        t = perpetualTimer(3,self.heartbeat)
+        t.start()
 
-    def _add_genesis_block(self):
-            """Adds the genesis block to your blockchain."""
-            b = Block(0,[],"0",0)
-            b._address = self._address
-            self._blockchain._blocks.append(b)
-            self._ready = True
-
-    def _bootstrap(self, address):
+    def bootstrapProc(self, address):
             """Implements the bootstrapping procedure."""
-            """try:"""
-            response = requests.get(f'http://{address}/peers')
-            if response.status_code == 200:
-                self._peers.append(address)
-                self._peers += response.json()
-                if self._address in self._peers:
-                    self._peers.remove(self._address)
-            else:
-                print("bootstrapping procedure cannot get peers")
-                return
-            hashes = {}
-            #print('mes peers',self._peers)
-            for peer in self._peers:
-                #print("wesh")
-                response = requests.get(f'http://{peer}/addNewNode?address={self._address}')
-                #print('"""""""""""',response.json())
-                hashes[peer] = response.json()
-            #print('out',hashes)
-            #retrieve most commun hash in the network
-            mostCommunHash = Counter(hashes.values()).most_common(1)[0][0]
-            #retrieve a node with the most commun
-            p = list(hashes.keys())[list(hashes.values()).index(mostCommunHash)]
-            response = requests.get(f'http://{p}/keyChain')
-            print(response.json())
-            self._blockchain =Blockchain(self,blocks=response.json())
-            response = requests.get(f'http://{p}/memoryPool')
-            for i in response.json()['transaction']:
-                t = Transaction(i['origin'],i['key'],i['value'],i['timestamp'])
-                self._memoryPool.append(t)
-            for i in self._memoryPool:
-                print(i)
-            print(self._blockchain.rep())
+            try:
+                response = requests.get(f'http://{address}/peers')
+                if response.status_code == 200:
+                    self.peers.append(address)
+                    self.peers += response.json()
+                    if self.address in self.peers:
+                        self.peers.remove(self.address)
+                else:
+                    print("bootstrapping procedure cannot get peers")
+                    return
                 
-            """except Exception:
+                hashes = {}
+                for peer in self.peers:
+                    response = requests.get(f'http://{peer}/addNewNode?address={self.address}')
+                    hashes[peer] = response.json()
+
+                #retrieve most commun hash in the network
+                mostCommunHash = Counter(hashes.values()).most_common(1)[0][0]
+                #retrieve a node with the most commun
+                p = list(hashes.keys())[list(hashes.values()).index(mostCommunHash)]
+                #ask key chain to that node
+                response = requests.get(f'http://{p}/keyChain')
+                self.blockchain = Blockchain(self,response.json())
+                #ask memoryPool to that node
+                response = requests.get(f'http://{p}/memoryPool')
+                for t in json.loads(response.json()):
+                    self.memoryPool.append(Transaction(str(t).replace('\'','\"')))
+                print(self.memoryPool)
+                print(self.blockchain)
+                self.ready = True
+                
+            except Exception as e:
                 print("impossible de contazcter le noeud maybee crash ?")
-                exit(1)"""
-    
+                print(e)
+                exit(1)
+
     def put(self, key, value, time,block=True):
             """Puts the specified key and value on the Blockchain.
             The block flag indicates whether the call should block until the value
             has been put onto the blockchain, or if an error occurred.
             """
-
-            transaction = Transaction(self._address, key, value,time)
+            transaction = Transaction(self.address, key, value,time)
             #Add dans pool
             self.add_transaction(transaction)
-            callback = Callback(transaction, self._blockchain)
-            if block:
-                callback.wait()
-                return callback
-            return True
-    
-    def _broadcastTrans(self,transaction):
-        
-        for peer in self._peers:
-            try:
-                requests.get(f'http://{peer}/addTransaction?transaction={str(transaction.rep())}')
             
-            except Exception:
-                pass
+            if block:
+                callback = Callback(transaction, self.blockchain)
+                callback.wait()
+                mess = f'({key},{value} added to the store at index {callback.index} at {callback.time})'
+                print(mess)
+                return
+            mess = f'({key},{value} will be eventually added to the store)'
+            print(mess)
+            return
 
     def add_transaction(self, transaction):
             """Adds a transaction to your current list of transactions,
@@ -111,38 +99,79 @@ class Peer:
             of transactions, and attempt to mine a block with those.
             """
             #met dans la pool
-            if transaction not in self._memoryPool:
-                self._memoryPool.append(transaction)
-                self._broadcastTrans(transaction)
+            if transaction not in self.memoryPool:
+                self.memoryPool.append(transaction)
+                self.broadcastTrans(transaction)
+            else:
+                print("++++++++++++++++++++++++ DISCARD TRANS")
             #Broadcast
+    
+    def broadcastTrans(self,transaction):
+        
+        for peer in self.peers:
+            try:
+                requests.get(f'http://{peer}/addTransaction?transaction={str(transaction)}')
             
-            
+            except Exception:
+                pass
 
+    def broadcastBlock(self,block):
+        
+        for peer in self.peers:
+            try:
+                requests.get(f'http://{peer}/addNewBlock?block={str(block)}')
+
+            except Exception:
+                pass
+
+    def add_block (self, block):
+        #doit gerer ds autres node les transaction aussi 
+        if block not in self.blockchain.blocks:
+                if(self.blockchain.add_block(block)):
+                    self.broadcastBlock(block)
+        else:
+            print("++++++++++++++++++++++++ DISCARD BLOCK")
+            #Broadcast
+       
     def mine(self):
             """Implements the mining procedure."""
-            print("Ligne 113: Entré dans mine")
-            candidate_block = Block(len(self._blockchain._blocks) + 1, self._memoryPool, self._blockchain.last_block.hash(), 0)
+
+            if not self.miner:
+                return False
+            
+            if self.memoryPool == [] or not self.ready:
+                time.sleep(2)
+                print("wait trans in pool...")
+                return self.mine()
+
+            print("-- Start mining...")
+
+            candidate_block = Block(len(self.blockchain.blocks),self.address,self.memoryPool, self.blockchain.last_block._hash,time.asctime())
             print("En train de Compute hash of candidate block and checks if below target")
             #Computes hash of candidate block and checks if it is below target.
             while True:
-                hash = candidate_block.hash()
-                print("Hash")
-                print(hash)
-                if hash.startswith('0' * self._blockchain.difficulty):
+                hash = candidate_block._hash
+                if hash.startswith('0' * self.blockchain.difficulty):
                     print("Trouvé below target !!!!!!!!!")
-                    self._memoryPool = []
-                    self._blockchain.add_block(candidate_block)
+                    # PRBLM : possibilité d'avoir une transac entre temps de la ligne 138 à mtn
+                    self.memoryPool = []
+
+                    self.blockchain.add_block(candidate_block)
                     print("On s'apprête à broadcast")
                     #Broadcast
-                    for peer in self._peers:
-                        print("Broadcast à peer " + str(peer._address))
-                        #r = requests.post('https://httpbin.org/post', data={'key': 'value'})
-                        requests.post(f'http://{peer}/addNewBlock', data={'block': candidate_block.rep()})
+                    for peer in self.peers:
+                        try:
+                            print("Broadcast à peer " + peer)
+                            requests.get(f'http://{peer}/addNewBlock?block={str(candidate_block)}')
+                
+                        except Exception as e:
+                            print(e)
+                    print(self.blockchain)
+                    print("-- fin du mining")
+                    return self.mine()
                     
-                    return candidate_block
-                    
-                candidate_block._nonce += 1
-
+                candidate_block.nonce += 1
+            
     def retrieve(self, key):
             """Searches the most recent value of the specified key.
 
@@ -150,43 +179,72 @@ class Peer:
             or implement some indexing schemes if you would like to do something
             more efficient.
             """
-            raise NotImplementedError
+            latest_value = None
+            print(type(self.blockchain))
+            print(type(self.blockchain.blocks))
+            print(type(self.blockchain.blocks[0]))
+            for b in self.blockchain.blocks:
+                for t in b.transactions:
+                    if(t.key == key):
+                        latest_value = (t.value,t.origin,t.timestamp)
+
+            if latest_value != None:
+                print("Latest value for the key : "+key)
+                print(latest_value)
+
+            return latest_value
 
     def retrieve_all(self, key):
         """Retrieves all values associated with the specified key on the
         complete blockchain.
         """
-        raise NotImplementedError
-    
-    def _heartbeat(self, removed):
+        values = []
+
+        for b in self.blockchain.blocks:
+            for t in b.transactions:
+                    if(t.key == key):
+                        values.append((t.value,t.origin,t.timestamp))
+
+        if values != []:
+            print("Values for the key : "+key)
+            print(values)
+
+        return values
+ 
+    def heartbeat(self, removed):
         try:
             if not removed:
                 print("-- <3 HEARTBEAT MEASUREMENT <3 --")
-                self._peers_heartbeat = self._peers.copy()
+                self.peers_heartbeat = self.peers.copy()
             
-            print(self._peers) 
-            print(self._peers_heartbeat)
-            print(self._heartbeat_count)
+            print(self.peers) 
+            print(self.peers_heartbeat)
+            print(self.heartbeat_count)
             print(" ")
-            for peer in self._peers_heartbeat:
+            for peer in self.peers_heartbeat:
                 current_peer = peer
                 requests.get(f'http://{peer}/heartbeat')
-                self._heartbeat_count[peer] = 0
+                self.heartbeat_count[peer] = 0
 
             
         except Exception:
             print('A peer doesn\'t respond')
 
-            self._peers_heartbeat.remove(current_peer)
-            self._heartbeat_count[current_peer] += 1
+            self.peers_heartbeat.remove(current_peer)
+            self.heartbeat_count[current_peer] += 1
 
-            if self._heartbeat_count[current_peer] == 10:
-                self._peers.remove(current_peer)
-                del self._heartbeat_count[current_peer]
+            if self.heartbeat_count[current_peer] == 10:
+                self.peers.remove(current_peer)
+                del self.heartbeat_count[current_peer]
 
-            self._heartbeat(1)
+            self.heartbeat(1)
 
-
+    def __str__(self) -> str:
+        return f'\"{self.address}\"'
+        
+    def __repr__(self) -> str:
+        return f'\"{self.address}\"'
+     
 #callback = Callback(transaction, self._blockchain)
 class Callback:#retiens que cette transaction a été ajoutée
     #called whenever the key has been added to the system, or if a failure occurred.
@@ -195,8 +253,8 @@ class Callback:#retiens que cette transaction a été ajoutée
     callback attend jusque la transaction soit mise sur la chaîne
     """
     def __init__(self, transaction, blockchain):
-        self._transaction = transaction
-        self._blockchain = blockchain
+        self.transaction = transaction
+        self.blockchain = blockchain
 
     def wait(self):
         """Wait until the transaction appears in the blockchain."""
@@ -208,10 +266,11 @@ class Callback:#retiens que cette transaction a été ajoutée
     def completed(self):
         """Polls the blockchain to check if the data is available."""
         for block in self.blockchain.blocks:
-            if block.contains(self._transaction):
+            if block.contains(self.transaction):
+                self.time = block.timestamp
+                self.index = block.index
                 return True
         return False
-
 
 class perpetualTimer():
 
@@ -237,4 +296,4 @@ class perpetualTimer():
 if __name__ == "__main__":
     p = Peer(f'localhost:{5000}',False,difficulty=5)
     
-    print(p._blockchain.rep())
+    print(p.blockchain)

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Key Chain Interface</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{url_for('static', filename='favicon-16x16.png')}}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{url_for('static', filename='favicon-32x32.png')}}">
+</head>
+
+<body>
+    <header>
+        <img class="dylan" src="{{url_for('static', filename='dylan.gif')}}">
+    </header>
+
+    <div class="flex-container">
+        <div class="left">
+            <form action="" method="post">
+                <label for="key">key</label><br>
+                <input autocomplete="off" type="text" name="key"><br>
+                <label for="value">value</label><br>
+                <input autocomplete="off" type="text" name="value"><br>
+                <input type="checkbox" name="callback">
+                <label for="callback">want a callback ?</label>
+                <input class="button" type="submit" name="s" value="ADD">
+            </form>
+
+            <form action="" method="post">
+                <label for="key">Key</label><br>
+                <input autocomplete="off" type="text" name="key" value="">
+                <input class="button" type="submit" name="RETRIEVE" value="RETRIEVE">
+            </form>
+
+            <form action="" method="post">
+                <label for="key">key</label><br>
+                <input autocomplete="off" type="text" id="fname" name="key" value="">
+                <input class="button" type="submit" name="RETRIEVE ALL" value="RETRIEVE ALL">
+            </form>
+
+            <form action="" method="post">
+                <input class="button" type="submit" name="NETWORK" value="SHOW THE NETWORK">
+            </form>
+        </div>
+        <div class="right">
+            {% if p %}
+            <p>User has some peers</p>
+            {% for peer in p %}
+            <li>{{ peer }}</li>
+            {% endfor %} {% endif %} {% if retrieve_key %}
+            <p>The latest value for the specified key is {{ retrieve_key[0] }} added by {{ retrieve_key[1] }} at {{ retrieve_key[2] }} </p>
+            {% endif %} {% if retrieve_keys %}
+            <p>The values for the specified key are</p>
+            <table style="width:100%"></table>
+            <tr>
+                <th>value</th>
+                <th>origin node</th>
+                <th>time</th>
+            </tr>
+            {% for key in retrieve_keys %}
+            <tr>
+                <td>{{ key[0] }}</td>
+                <td>{{ key[1] }}</td>
+                <td>{{ key[2] }}</td>
+            </tr>
+            {% endfor %} {% endif %}
+            </table>
+
+        </div>
+    </div>
+
+
+
+</body>
+
+</html>

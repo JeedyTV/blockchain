@@ -1,4 +1,5 @@
 import argparse
+from blockchain import Block
 from flask import Flask, render_template,request,jsonify
 from peers import Peer
 from logo import LOGO
@@ -8,6 +9,8 @@ import time
 from colorama import init
 from termcolor import cprint
 from pyfladesk import init_gui
+import threading 
+from threading import Timer,Thread,Event
 from routes import *
 
 init()
@@ -34,75 +37,74 @@ app = Flask(__name__)
 
 @app.route('/',methods=['post', 'get'])
 def index():
-    message = ''
+
     if request.method == 'POST':
         if request.form.get('s'):
             value = request.form.get('value')  # access the data inside 
             key = request.form.get('key')
-            print(value,key)
-            p.put(key,value,time.asctime(),False)
-        if request.form.get('NETWORK'):
-            print(p._peers)
-        message = 'value add to the block'
+            call =  request.form.get('callback')
+            if call :
+                p.put(key,value,time.asctime(),True) # add call back to user
+            else:
+                p.put(key,value,time.asctime(),False)
+
+        if request.form.get('RETRIEVE'):
+            key = request.form.get('key')
+            retrieved_key = p.retrieve(key)
+            return render_template('test2.html',retrieve_key = retrieved_key)
         
-    #return render_template('test.html', message=message)
-    return render_template('test.html')
+        if request.form.get('RETRIEVE ALL'):
+            key = request.form.get('key')
+            retrieved_keys = p.retrieve_all(key)
+            return render_template('test2.html',retrieve_keys = retrieved_keys)
+        
+        if request.form.get('NETWORK'):
+            return render_template('test2.html',p=p.peers)
+        
+    return render_template('test2.html')
 
-@app.route('/sku')
-def update_peers():
+@app.route('/peers')
+def send_peers():
+    return jsonify(p.peers)
 
-    return jsonify({'e':'biatch'})
+@app.route('/addNewNode')
+def addNewNode():
+    new_peer= request.args.get('address')
+    if new_peer not in p.peers:
+        p.peers.append(new_peer)
+        p.heartbeat_count[new_peer] = 0
+    return jsonify(p.blockchain.last_block._hash)
+
+@app.route('/keyChain')
+def send_keyChain():
+    return jsonify(str(p.blockchain))
+
+@app.route('/memoryPool')
+def sendMemoryPool():
+    return jsonify(str(p.memoryPool))
 
 @app.route('/addTransaction')
 def newTransaction():
     print("new trans")
     t = request.args.get('transaction').replace("\'",'\"')
-    t = json.loads(t)
-    t = Transaction(t['origin'],t['key'],t['value'],t['timestamp'])
-    p.add_transaction(t)
-    return jsonify({'state':'recu'})
-
-@app.route('/peers')
-def send_peers():
-    return jsonify(p._peers)
+    p.add_transaction(Transaction(t))
+    return jsonify({})
 
 @app.route('/heartbeat')
 def send_heartbeat():
-    return jsonify({'address': p._address})
-
-@app.route('/keyChain')
-def send_keyChain():
-    return jsonify(p._blockchain.rep())
-
-@app.route('/addNewNode')
-def addNewNode():
-    #print('b',p._peers)
-    new_peer= request.args.get('address')
-    if new_peer not in p._peers:
-        p._peers.append(new_peer)
-        p._heartbeat_count[new_peer] = 0
-    #print(f" {new_peer} wants to access the network")
-    #print('a',p._peers)
-    #print(type(p._blockchain))
-    #print(p._blockchain.rep())
-    return jsonify(p._blockchain.last_block.hash())
-    
-@app.route('/memoryPool')
-def sendMemoryPool():
-    m = []
-    for i in p._memoryPool:
-        m.append(i.rep())
-    return jsonify({'transaction':m})
-    
+    return jsonify({'address': p.address})
+  
 @app.route('/addNewBlock')
 def addNewBlock():
-    print("Entré dans addNewBlock")
-    new_block= request.form.get('block')
-    print(new_block)
-    print("Type new_block")
-    print(type(new_block))
-    #p._blockchain.add_block(new_block)
+    print("new block")
+    b = request.args.get('block').replace("\'",'\"')
+    p.add_block(Block(b))
     return jsonify(dict())
+
+@app.route('/sku')
+def update_peers():
+
+    return jsonify({'e':'biatch'})
 
 if __name__ == "__main__":
     arguments = parse_arguments()
@@ -119,9 +121,13 @@ if __name__ == "__main__":
         #bootstrap peer  
         p = Peer(f'localhost:{port}',miner,bootstrap=bootstrap)
      
-    cprint(LOGO, 'red')
-
-    init_gui(app, port=port, width=1000, height=900,
-             window_title="Key-value Chain", icon="static/favicon-32x32.png")
+    cprint(LOGO,'red')
+    thread = threading.Timer(0, p.mine)
+    thread.daemon = True
+    thread.start()
+    
+    app.run(port=port)
+    #init_gui(app, port=port, width=1000, height=900,
+           # window_title=f'localhost:{port}', icon="static/favicon-32x32.png")
 
     
