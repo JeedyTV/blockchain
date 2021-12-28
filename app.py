@@ -11,8 +11,9 @@ from termcolor import cprint
 from pyfladesk import init_gui
 import threading 
 from threading import Timer,Thread,Event
-from routes import *
-
+import logging
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR) #To remove Flask messages in the console
 init()
 
 def parse_arguments():
@@ -20,8 +21,8 @@ def parse_arguments():
         "KeyChain - An overengineered key-value store "
         "with version control, powered by fancy linked-lists.")
 
-    parser.add_argument("--miner", type=bool, default=False, nargs='?',
-                        const=True, help="Starts the mining procedure.")
+    parser.add_argument("--miner", type=str, default='False', 
+                        help="Starts the mining procedure.")
     parser.add_argument("--bootstrap", type=str,default=None,
                         help="Sets the address of the bootstrap node.")
     parser.add_argument("--difficulty", type=int, default=5,
@@ -73,7 +74,8 @@ def addNewNode():
     if new_peer not in p.peers:
         p.peers.append(new_peer)
         p.heartbeat_count[new_peer] = 0
-    return jsonify(p.blockchain.last_block._hash)
+    return jsonify(len(p.blockchain))
+    #return jsonify(p.blockchain.last_block._hash)
 
 @app.route('/keyChain')
 def send_keyChain():
@@ -98,7 +100,11 @@ def send_heartbeat():
 def addNewBlock():
     print("new block")
     b = request.args.get('block').replace("\'",'\"')
+    print("Peer " + str(p.address) + " arrête de mine")
+    p.mining = False
     p.add_block(Block(b))
+    print("Peer " + str(p.address) + " se remet à mine car il vient d'ajouter le mined block qu'on lui a broadcast")
+    p.mining = True
     return jsonify(dict())
 
 @app.route('/sku')
@@ -110,7 +116,9 @@ if __name__ == "__main__":
     arguments = parse_arguments()
     
     port = arguments.port
-    miner = arguments.miner
+    miner = False
+    if arguments.miner == 'True':
+        miner = True
     difficulty = arguments.difficulty
     bootstrap = arguments.bootstrap
     

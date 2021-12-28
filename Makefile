@@ -16,9 +16,9 @@ comp:
 	@./make_archive.sh	
 
 run:
-	@clear
-	@python3 main.py  test.vsop
-	@./test
+	@cls
+	@python app.py --p 5000 --m True
+	@python app.py --p 20000 --m False --b localhost:5000
 
 clean:
 	@echo "cleaned"

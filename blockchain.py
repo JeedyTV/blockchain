@@ -87,15 +87,20 @@ class Blockchain:
                 self.blocks.append(Block(str(b).replace('\'','\"')))
         
         #self._pasdinspi = [] #contents blocks mined at the same times
-        
+    
+    def __len__(self):
+        return len(self.blocks)
+
     @property
     def last_block(self):
         return self.blocks[-1]
 
     def add_block(self, block):
         """Check if block is valid"""
+        print("Entré dans blockchain.add_block")
+        print("Length memory pool:")
+        print(len(self.peer.memoryPool))
         #Is previous hash the correct one ?
-        #rajouter cas ou pluseir block mine en meme temps
         if not block.previous_hash == self.last_block._hash:
             return False
         #Is proof valid ?

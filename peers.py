@@ -13,12 +13,14 @@ class Peer:
         
         self.address = address
         self.miner = miner
+        self.mining = miner
         self.memoryPool = []
         self.peers = []
         self.blockchain = None
         self.ready = False
         self.peers_heartbeat = []
         self.heartbeat_count = {}
+        self.transactions_historic = []
 
         #if first peer create a blockchain for the whole network
         if not bootstrap:
@@ -48,15 +50,15 @@ class Peer:
                     print("bootstrapping procedure cannot get peers")
                     return
                 
-                hashes = {}
+                chain_sizes = {}
                 for peer in self.peers:
                     response = requests.get(f'http://{peer}/addNewNode?address={self.address}')
-                    hashes[peer] = response.json()
+                    chain_sizes[peer] = response.json()
 
-                #retrieve most commun hash in the network
-                mostCommunHash = Counter(hashes.values()).most_common(1)[0][0]
-                #retrieve a node with the most commun
-                p = list(hashes.keys())[list(hashes.values()).index(mostCommunHash)]
+                #retrieve longest chain size in the network
+                longestSize = max(chain_sizes.values())
+                #retrieve a node with the longest chain size
+                p = list(chain_sizes.keys())[list(chain_sizes.values()).index(longestSize)]
                 #ask key chain to that node
                 response = requests.get(f'http://{p}/keyChain')
                 self.blockchain = Blockchain(self,response.json())
@@ -99,8 +101,9 @@ class Peer:
             of transactions, and attempt to mine a block with those.
             """
             #met dans la pool
-            if transaction not in self.memoryPool:
+            if transaction not in self.memoryPool and transaction not in self.transactions_historic:
                 self.memoryPool.append(transaction)
+                self.transactions_historic.append(transaction)
                 self.broadcastTrans(transaction)
             else:
                 print("++++++++++++++++++++++++ DISCARD TRANS")
@@ -142,42 +145,59 @@ class Peer:
 
     def add_block (self, block):
         #doit gerer ds autres node les transaction aussi 
+        self.mining = False
         self.handle_memoryPool(block)
+        print(f"Length memory pool:{len(self.memoryPool)}")
+        
         if block not in self.blockchain.blocks:
                 if(self.blockchain.add_block(block)):
                     self.broadcastBlock(block)
         else:
             print("++++++++++++++++++++++++ DISCARD BLOCK")
             #Broadcast
+        
         print(" -- AFTER ADDING A BLOCK, THE BLOCKCHAIN IS : -- ")
         print(" ")
         print(self.blockchain)
         print(" ")
+        self.mining = True
 
        
     def mine(self):
-            """Implements the mining procedure."""
+        """Implements the mining procedure."""
 
-            if not self.miner:
-                return False
-            
-            if self.memoryPool == [] or not self.ready:
-                time.sleep(2)
-                print("wait trans in pool...")
-                return self.mine()
-            print(" ")
-            print("------------------")
-            print("-- Start mining...")
+        if not self.miner:
+            return False
+        a, b, c = self.mining, self.memoryPool == [], self.ready
+        #if not self.mining or self.memoryPool == [] or not self.ready:
+        print("Valeur de la fonction f:" + str(c and (not a or b)))
+        print("Valeur de a,b,c:")
+        print(a,b,c)
+        if c and (not a or b):
+            time.sleep(2)
+            print("wait trans in pool...")
+            return self.mine()
+        print(" ")
+        print("------------------")
+        print("-- Start mining...")
+        print(f"Length self.memoryPool: {len(self.memoryPool)}")
+        #print(f"On start mining vu les valeurs de a,b,c")
 
-            candidate_block = Block(len(self.blockchain.blocks),self.address,self.memoryPool, self.blockchain.last_block._hash,time.asctime())
-            #print("En train de Compute hash of candidate block and checks if below target")
-            #Computes hash of candidate block and checks if it is below target.
-            while True:
+        candidate_block = Block(len(self.blockchain.blocks),self.address,self.memoryPool, self.blockchain.last_block._hash,time.asctime())
+        #print("En train de Compute hash of candidate block and checks if below target")
+        #Computes hash of candidate block and checks if it is below target.
+        print("Difficulty=" + str(self.blockchain.difficulty))
+        while True:
+            if self.mining:
+                #print("self.mining est True")
                 hash = candidate_block._hash
                 if hash.startswith('0' * self.blockchain.difficulty):
                     print("Trouvé below target !!!!!!!!!")
 
                     self.blockchain.add_block(candidate_block)
+                    self.handle_memoryPool(candidate_block)
+                    print("Length memory pool:")
+                    print(len(self.memoryPool))
                     #print("On s'apprête à broadcast")
                     #Broadcast
                     for peer in self.peers:
@@ -193,8 +213,11 @@ class Peer:
                     print(" ")
 
                     return self.mine()
-                    
+            
                 candidate_block.nonce += 1
+            else:
+                print("self.mining est False du coup on return self.mine()")
+                return self.mine()
             
     def retrieve(self, key):
             """Searches the most recent value of the specified key.
