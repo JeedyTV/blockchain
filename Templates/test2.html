@@ -10,6 +10,7 @@
 
 <body>
     <header>
+        <br>
         <p align="center"><iframe src="https://giphy.com/embed/3o7WIB00yXujVt4WEo" width="200" height="200" frameBorder="0" ></iframe></p>
     </header>
 
@@ -40,11 +41,14 @@
         </div>
         <div class="right">
             {% if p %}
-            <p>User has some peers</p>
-            {% for peer in p %}
-            <li>{{ peer }}</li>
-            {% endfor %} {% endif %} {% if retrieve_key %}
-            <p>The latest value for the specified key is {{ retrieve_key[0] }} added by {{ retrieve_key[1] }} at {{ retrieve_key[2] }} </p>
+                <p>User has peers :</p>
+                {% for peer in p %}
+                <li>{{ peer }}</li>
+                {% endfor %} 
+            {% endif %} {% if retrieve_key %}
+            <p>The latest value for the specified key is </p>
+            <b>{{ retrieve_key[0] }}</b> 
+            <p>added by {{ retrieve_key[1] }} at {{ retrieve_key[2] }} </p>
             {% endif %} {% if retrieve_keys %}
             <p>The values for the specified key are</p>
             <table style="width:100%"></table>
@@ -64,9 +68,6 @@
 
         </div>
     </div>
-
-
-
 </body>
 
 </html>

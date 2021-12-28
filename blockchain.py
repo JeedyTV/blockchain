@@ -97,9 +97,6 @@ class Blockchain:
 
     def add_block(self, block):
         """Check if block is valid"""
-        print("Entré dans blockchain.add_block")
-        print("Length memory pool:")
-        print(len(self.peer.memoryPool))
         #Is previous hash the correct one ?
         if not block.previous_hash == self.last_block._hash:
             return False

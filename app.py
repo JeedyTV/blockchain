@@ -102,10 +102,18 @@ def addNewBlock():
     b = request.args.get('block').replace("\'",'\"')
     print("Peer " + str(p.address) + " arrête de mine")
     p.mining = False
-    p.add_block(Block(b))
-    print("Peer " + str(p.address) + " se remet à mine car il vient d'ajouter le mined block qu'on lui a broadcast")
-    p.mining = True
+
+    bl = Block(b)
+    address = bl.address
+    # si consensus False (pas de consensus), pas de probleme tu peux add 
+    if not p.consensus(bl,address):
+
+        p.add_block(bl)
+        print("Peer " + str(p.address) + " se remet à mine car il vient d'ajouter le mined block qu'on lui a broadcast")
+        p.mining = True
+
     return jsonify(dict())
+
 
 @app.route('/sku')
 def update_peers():

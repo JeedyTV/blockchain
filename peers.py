@@ -51,6 +51,7 @@ class Peer:
                     return
                 
                 chain_sizes = {}
+
                 for peer in self.peers:
                     response = requests.get(f'http://{peer}/addNewNode?address={self.address}')
                     chain_sizes[peer] = response.json()
@@ -116,21 +117,35 @@ class Peer:
             
             for t_mp in self.memoryPool: 
                 if t.key == t_mp.key and t.value == t_mp.value \
-                    and t.timestamp == t_mp.timestamp:
-                    return_memoryPool.remove(t_mp)
+                    and t.timestamp == t_mp.timestamp and \
+                    t_mp in return_memoryPool:
+                        return_memoryPool.remove(t_mp)
 
         self.memoryPool = return_memoryPool.copy()
 
 
+    def consensus(self,block, address):
 
-        
+        index_last_block = self.blockchain.last_block.index
+
+        if block.index - index_last_block >= 2:
+
+            try:
+                response = requests.get(f'http://{address}/keyChain')
+                self.blockchain = Blockchain(self,response.json())
+
+                return True
+
+            except Exception:
+                pass
+
+        return False
     
     def broadcastTrans(self,transaction):
         
         for peer in self.peers:
             try:
                 requests.get(f'http://{peer}/addTransaction?transaction={str(transaction)}')
-            
             except Exception:
                 pass
 
@@ -138,23 +153,23 @@ class Peer:
         
         for peer in self.peers:
             try:
+                #requests.get(f'http://{peer}/addNewBlock?block={str(block)}?address={self.address}')
                 requests.get(f'http://{peer}/addNewBlock?block={str(block)}')
-
             except Exception:
                 pass
 
     def add_block (self, block):
-        #doit gerer ds autres node les transaction aussi 
+
         self.mining = False
         self.handle_memoryPool(block)
-        print(f"Length memory pool:{len(self.memoryPool)}")
         
         if block not in self.blockchain.blocks:
                 if(self.blockchain.add_block(block)):
+
                     self.broadcastBlock(block)
+
         else:
             print("++++++++++++++++++++++++ DISCARD BLOCK")
-            #Broadcast
         
         print(" -- AFTER ADDING A BLOCK, THE BLOCKCHAIN IS : -- ")
         print(" ")
@@ -170,23 +185,22 @@ class Peer:
             return False
         a, b, c = self.mining, self.memoryPool == [], self.ready
         #if not self.mining or self.memoryPool == [] or not self.ready:
-        print("Valeur de la fonction f:" + str(c and (not a or b)))
-        print("Valeur de a,b,c:")
-        print(a,b,c)
+        #print("Valeur de la fonction f:" + str(c and (not a or b)))
+        #print("Valeur de a,b,c:")
+        #print(a,b,c)
         if c and (not a or b):
             time.sleep(2)
             print("wait trans in pool...")
+            print(self.peers)
             return self.mine()
         print(" ")
         print("------------------")
         print("-- Start mining...")
-        print(f"Length self.memoryPool: {len(self.memoryPool)}")
         #print(f"On start mining vu les valeurs de a,b,c")
 
         candidate_block = Block(len(self.blockchain.blocks),self.address,self.memoryPool, self.blockchain.last_block._hash,time.asctime())
         #print("En train de Compute hash of candidate block and checks if below target")
         #Computes hash of candidate block and checks if it is below target.
-        print("Difficulty=" + str(self.blockchain.difficulty))
         while True:
             if self.mining:
                 #print("self.mining est True")
@@ -196,8 +210,7 @@ class Peer:
 
                     self.blockchain.add_block(candidate_block)
                     self.handle_memoryPool(candidate_block)
-                    print("Length memory pool:")
-                    print(len(self.memoryPool))
+
                     #print("On s'apprête à broadcast")
                     #Broadcast
                     for peer in self.peers:
@@ -216,7 +229,6 @@ class Peer:
             
                 candidate_block.nonce += 1
             else:
-                print("self.mining est False du coup on return self.mine()")
                 return self.mine()
             
     def retrieve(self, key):
