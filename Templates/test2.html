@@ -10,32 +10,29 @@
 
 <body>
     <header>
-        <img class="dylan" src="{{url_for('static', filename='dylan.gif')}}">
+        <p align="center"><iframe src="https://giphy.com/embed/3o7WIB00yXujVt4WEo" width="200" height="200" frameBorder="0" ></iframe></p>
     </header>
 
     <div class="flex-container">
         <div class="left">
             <form action="" method="post">
-                <label for="key">key</label><br>
-                <input autocomplete="off" type="text" name="key"><br>
-                <label for="value">value</label><br>
-                <input autocomplete="off" type="text" name="value"><br>
+                <input autocomplete="off" placeholder="Key" type="text" name="key"><br>
+                <input autocomplete="off" placeholder="Value" type="text" name="value"><br>
                 <input type="checkbox" name="callback">
-                <label for="callback">want a callback ?</label>
-                <input class="button" type="submit" name="s" value="ADD">
+                <label for="callback"> Callback </label>
+                <input class="button" type="submit" name="s" value="ADD A TRANSACTION">
             </form>
-
+            <br>
             <form action="" method="post">
-                <label for="key">Key</label><br>
-                <input autocomplete="off" type="text" name="key" value="">
+                <input autocomplete="off" type="text" placeholder="Key"  name="key" value="">
                 <input class="button" type="submit" name="RETRIEVE" value="RETRIEVE">
             </form>
-
+            <br>
             <form action="" method="post">
-                <label for="key">key</label><br>
-                <input autocomplete="off" type="text" id="fname" name="key" value="">
+                <input autocomplete="off" type="text" placeholder="Key"  id="fname" name="key" value="">
                 <input class="button" type="submit" name="RETRIEVE ALL" value="RETRIEVE ALL">
             </form>
+            <br>
 
             <form action="" method="post">
                 <input class="button" type="submit" name="NETWORK" value="SHOW THE NETWORK">

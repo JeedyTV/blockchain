@@ -106,6 +106,22 @@ class Peer:
                 print("++++++++++++++++++++++++ DISCARD TRANS")
             #Broadcast
     
+    def handle_memoryPool(self, block):
+
+        return_memoryPool = self.memoryPool.copy()
+        for t in block.transactions:
+            
+            for t_mp in self.memoryPool: 
+                if t.key == t_mp.key and t.value == t_mp.value \
+                    and t.timestamp == t_mp.timestamp:
+                    return_memoryPool.remove(t_mp)
+
+        self.memoryPool = return_memoryPool.copy()
+
+
+
+        
+    
     def broadcastTrans(self,transaction):
         
         for peer in self.peers:
@@ -126,12 +142,18 @@ class Peer:
 
     def add_block (self, block):
         #doit gerer ds autres node les transaction aussi 
+        self.handle_memoryPool(block)
         if block not in self.blockchain.blocks:
                 if(self.blockchain.add_block(block)):
                     self.broadcastBlock(block)
         else:
             print("++++++++++++++++++++++++ DISCARD BLOCK")
             #Broadcast
+        print(" -- AFTER ADDING A BLOCK, THE BLOCKCHAIN IS : -- ")
+        print(" ")
+        print(self.blockchain)
+        print(" ")
+
        
     def mine(self):
             """Implements the mining procedure."""
@@ -143,21 +165,20 @@ class Peer:
                 time.sleep(2)
                 print("wait trans in pool...")
                 return self.mine()
-
+            print(" ")
+            print("------------------")
             print("-- Start mining...")
 
             candidate_block = Block(len(self.blockchain.blocks),self.address,self.memoryPool, self.blockchain.last_block._hash,time.asctime())
-            print("En train de Compute hash of candidate block and checks if below target")
+            #print("En train de Compute hash of candidate block and checks if below target")
             #Computes hash of candidate block and checks if it is below target.
             while True:
                 hash = candidate_block._hash
                 if hash.startswith('0' * self.blockchain.difficulty):
                     print("Trouvé below target !!!!!!!!!")
-                    # PRBLM : possibilité d'avoir une transac entre temps de la ligne 138 à mtn
-                    self.memoryPool = []
 
                     self.blockchain.add_block(candidate_block)
-                    print("On s'apprête à broadcast")
+                    #print("On s'apprête à broadcast")
                     #Broadcast
                     for peer in self.peers:
                         try:
@@ -167,7 +188,10 @@ class Peer:
                         except Exception as e:
                             print(e)
                     print(self.blockchain)
-                    print("-- fin du mining")
+                    print("-- End mining")
+                    print("-------------")
+                    print(" ")
+
                     return self.mine()
                     
                 candidate_block.nonce += 1
@@ -180,9 +204,6 @@ class Peer:
             more efficient.
             """
             latest_value = None
-            print(type(self.blockchain))
-            print(type(self.blockchain.blocks))
-            print(type(self.blockchain.blocks[0]))
             for b in self.blockchain.blocks:
                 for t in b.transactions:
                     if(t.key == key):
@@ -214,13 +235,13 @@ class Peer:
     def heartbeat(self, removed):
         try:
             if not removed:
-                print("-- <3 HEARTBEAT MEASUREMENT <3 --")
+                #print("-- <3 HEARTBEAT MEASUREMENT <3 --")
                 self.peers_heartbeat = self.peers.copy()
             
-            print(self.peers) 
-            print(self.peers_heartbeat)
-            print(self.heartbeat_count)
-            print(" ")
+            #print(self.peers) 
+            #print(self.peers_heartbeat)
+            #print(self.heartbeat_count)
+            #print(" ")
             for peer in self.peers_heartbeat:
                 current_peer = peer
                 requests.get(f'http://{peer}/heartbeat')
@@ -228,7 +249,7 @@ class Peer:
 
             
         except Exception:
-            print('A peer doesn\'t respond')
+            #print('A peer doesn\'t respond')
 
             self.peers_heartbeat.remove(current_peer)
             self.heartbeat_count[current_peer] += 1

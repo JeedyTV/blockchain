@@ -12,6 +12,11 @@ body {
     margin-right: auto
 }
 
+* {
+    font-size: 100%;
+    font-family: system-ui;
+   }
+
 #titre {
     color: rgb(255, 255, 255);
     animation-name: spinner;
@@ -68,7 +73,7 @@ select {
     border-radius: 4px;
     box-sizing: border-box;
     text-align: center;
-    font-family: Impact, Arial;
+    font-family: system-ui;
     background-color: #303134;
 }
 
@@ -81,7 +86,7 @@ input[type=submit] {
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    font-family: Impact, Arial;
+    font-family: system-ui;
     font-size: 18px;
 }
 
@@ -93,7 +98,7 @@ input[type=submit]:hover {
 footer {
     position: relative;
     margin-top: -190px;
-    font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+    font-family: system-ui;
 }
 
 .right {
