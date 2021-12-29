@@ -11,8 +11,9 @@ from termcolor import cprint
 from pyfladesk import init_gui
 import threading 
 from threading import Timer,Thread,Event
-#from routes import *
-
+import logging
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR) #To remove Flask messages in the console
 init()
 
 def parse_arguments():
@@ -63,6 +64,19 @@ def index():
         
     return render_template('test2.html')
 
+@app.route('/testing',methods=['post', 'get'])
+def index2():
+    call = False
+    data = request.get_json(force=True)
+    key = data['key']
+    value = data['value']
+    if call:
+        p.put(key,value,time.asctime(),True) # add call back to user
+    else:
+        p.put(key,value,time.asctime(),False)
+        
+    return {}
+
 @app.route('/peers')
 def send_peers():
     return jsonify(p.peers)
@@ -73,7 +87,8 @@ def addNewNode():
     if new_peer not in p.peers:
         p.peers.append(new_peer)
         p.heartbeat_count[new_peer] = 0
-    return jsonify(p.blockchain.last_block._hash)
+    return jsonify(len(p.blockchain))
+    #return jsonify(p.blockchain.last_block._hash)
 
 @app.route('/keyChain')
 def send_keyChain():
@@ -98,8 +113,20 @@ def send_heartbeat():
 def addNewBlock():
     print("new block")
     b = request.args.get('block').replace("\'",'\"')
-    p.add_block(Block(b))
+    print("Peer " + str(p.address) + " arrête de mine")
+    p.mining = False
+
+    bl = Block(b)
+    address = bl.address
+    # si consensus False (pas de consensus), pas de probleme tu peux add 
+    if not p.consensus(bl,address):
+
+        p.add_block(bl)
+        print("Peer " + str(p.address) + " se remet à mine car il vient d'ajouter le mined block qu'on lui a broadcast")
+        p.mining = True
+
     return jsonify(dict())
+
 
 @app.route('/sku')
 def update_peers():
@@ -113,9 +140,6 @@ if __name__ == "__main__":
     miner = False
     if arguments.miner == 'True':
         miner = True
-    
-    #print("miner value")
-    #print(miner)
     difficulty = arguments.difficulty
     bootstrap = arguments.bootstrap
     
