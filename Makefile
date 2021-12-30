@@ -9,25 +9,16 @@ help:
 
 install-tools:
 	@echo "installing tools ..."
-	@sudo apt update
-	@sudo apt-get install -y python3-pip
-	@pip3 install llvmlite
-
-vsopc:
-	@echo "construction du compilateur"
-	@echo "pour compiler un *.vsop type ./vsopc <path_of_*.vsop> on your terminal"
-	@echo "#!/usr/bin/env python3" > vsopc
-	@cat "main.py" >> "vsopc"
-	@chmod +x vsopc
+	@pip install -r requirements.txt
 
 comp:
 	@echo "archive made ..."
 	@./make_archive.sh	
 
 run:
-	@clear
-	@python3 main.py  test.vsop
-	@./test
+	@cls
+	@python app.py --p 5000 --m True
+	@python app.py --p 20000 --m False --b localhost:5000
 
 clean:
 	@echo "cleaned"

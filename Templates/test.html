@@ -1,33 +1,83 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-<title>Page Title</title>
+    <title>Key Chain Interface</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
 </head>
+
 <body>
+    <header>
+        <img class="dylan" src="{{url_for('static', filename='dylan.gif')}}">
+    </header>
 
-<h1>Block chain interface</h1>
-{% if message %}
-        <p>{{ message }}</p>
-    {% endif %}
-<p>Add a transaction to the chain</p>
-<form action="" method="post">
-  
-  insert key <input type="text" id="fname" name="key" value=""><br>
-  
-  insert value <input type="text" id="lname" name="value" value=""><br><br>
-  <input type="submit" name="s" value="Add">
-</form>
+    <div class="flex-container">
+        <div class="left">
+            <form action="" method="post">
+                <input autocomplete="off" type="text" id="fname" name="key" value="key">
+                <input autocomplete="off" type="text" id="lname" name="value" value="value">
+                <input class="button" type="submit" name="s" value="ADD">
+            </form>
 
-<p>Retrieve the transaction</p>
-<form action="/action_page.php">
-  Insert the related key <input type="text" id="fname" name="fname" value=""><br>
-  <input type="submit" value="Retrieve">
-</form>
-<p>Retrieve all the transaction  </p>
-<form action="/action_page.php">
-  Insert the related key <input type="text" id="fname" name="fname" value=""><br>
-  <input type="submit" value="Retrieve ALL">
-</form>
+            <form action="" method="post">
+                <input autocomplete="off" type="text" id="fname" name="key" value="">
+                <input class="button" type="submit" name="RETRIEVE" value="RETRIEVE">
+            </form>
+
+            <form action="" method="post">
+                <input autocomplete="off" type="text" id="fname" name="key" value="">
+                <input class="button" type="submit" name="RETRIEVE ALL" value="RETRIEVE ALL">
+            </form>
+
+            <form action="" method="post">
+                <input class="button" type="submit" name="NETWORK" value="NETWORK">
+            </form>
+        </div>
+        <div class="right">
+            {% if p %}
+                <p>User has some peers</p>
+                {% for peer in p %}
+                    <li>{{ peer }}</li>
+                {% endfor %}
+            {% endif %}
+            {% if retrieve_key %}
+                <p>The latest value for the specified key is {{ retrieve_key }} </p>
+            {% endif %}
+            {% if retrieve_keys %}
+                <p>The values for the specified key are</p>
+                {% for key in retrieve_keys %}
+                    <li>{{ key }}</li>
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+
+    <div id="wrapper">
+        <div id="spiderman">
+            <div class="head">
+                <div class="eye-left"></div>
+                <div class="eye-right"></div>
+            </div>
+            <div class="body">
+                <div class="spider"></div>
+                <div class="arm-left"></div>
+                <div class="arm-right"></div>
+            </div>
+            <div class="legs">
+                <div class="boot-left"></div>
+                <div class="boot-right"></div>
+            </div>
+        </div>
+    </div>
+
 
 </body>
+<footer>
+    <h1>
+        <marquee behavior="scroll" direction="left" scrollamount="7">Welcome</marquee>
+    </h1>
+</footer>
+
 </html>
