@@ -1,7 +1,25 @@
-#!/usr/bin/env python3
+class B:
+    def __init__(self):
+        self.l = [4,5,6]
+    def __len__(self):
+        return len(self.l)
 
-list = []
-try:
-    list[0] = 1
-except Exception as e:
-    print(e)
+    def __eq__(self, __o: object) -> bool:
+        return self.l == __o.l
+    #def __hash__(self):
+        #return hash(self.__repr__())
+
+a = B()
+print(len(a))
+"""
+s = set()
+s.add(a)
+print(s)
+print(a in s)
+
+d = B()
+print(d in s)
+"""
+z = list()
+z.append(a)
+print(a in z)

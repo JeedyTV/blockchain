@@ -1,119 +1,107 @@
-#rom keychain import Block
-#from keychain import Transaction
-#from keychain import Blockchain
 import time
 import requests
 from collections import Counter
-
 from requests.models import requote_uri
 from blockchain import Block,Blockchain
-from transaction import Transaction, Transactions
+from transaction import Transaction
 from threading import Timer,Thread,Event
+import json
+from datetime import datetime 
+
 
 class Peer:
+    
     def __init__(self, address,miner,bootstrap=None,difficulty=None):
         
-        self._address = address
-        self._miner = miner
-        self._memoryPool = []
-        self._peers = []
-        self._blockchain = None
-        self._ready = False
-        self._peers_heartbeat = []
-        self._heartbeat_count = {}
+        self.address = address
+        self.miner = miner
+        self.mining = miner
+        self.memoryPool = []
+        self.peers = []
+        self.blockchain = None
+        self.ready = False
+        self.peers_heartbeat = []
+        self.heartbeat_count = {}
+        self.transactions_historic = []
+        self.nb_transactions = []
+        self.timing = []
+        self.start = datetime.now()
+        self.experiment_throughput = None
+        self.experiment_attacker = None 
+        self.experiment_victim = None 
 
         #if first peer create a blockchain for the whole network
         if not bootstrap:
             print("first peer instantiate the whole net")
-            self._blockchain = Blockchain(self,difficulty)
             # Initialize the chain with the Genesis block.
-            self._add_genesis_block()
+            b = Block(0,self.address,[],"0",time.asctime())
+            self.blockchain = Blockchain(self,difficulty,b)
+            self.ready = True
         else:
         # Bootstrap the chain with the specified bootstrap address.
             print("start the boostraping")
-            self._bootstrap(bootstrap) #address ??
+            self.bootstrapProc(bootstrap) #address ??
         
-        #t = perpetualTimer(3,self._heartbeat)
-        #t.start()
+        t = PerpetualTimer(3,self.heartbeat)
+        t.start()
 
-    def _add_genesis_block(self):
-            """Adds the genesis block to your blockchain."""
-            b = Block(0,[],"0",0)
-            b._address = self._address
-            self._blockchain._blocks.append(b)
-            self._ready = True
-
-    def _bootstrap(self, address):
+    def bootstrapProc(self, address):
             """Implements the bootstrapping procedure."""
-            """try:"""
-            response = requests.get(f'http://{address}/peers')
-            if response.status_code == 200:
-                self._peers.append(address)
-                self._peers += response.json()
-                if self._address in self._peers:
-                    self._peers.remove(self._address)
-            else:
-                print("bootstrapping procedure cannot get peers")
-                return
-            hashes = {}
-            #print('mes peers',self._peers)
-            for peer in self._peers:
-                #print("wesh")
-                response = requests.get(f'http://{peer}/addNewNode?address={self._address}')
-                #print('"""""""""""',response.json())
-                hashes[peer] = response.json()
-            #print('out',hashes)
-            #retrieve most commun hash in the network
-            mostCommunHash = Counter(hashes.values()).most_common(1)[0][0]
-            #retrieve a node with the most commun
-            p = list(hashes.keys())[list(hashes.values()).index(mostCommunHash)]
-            response = requests.get(f'http://{p}/keyChain')
-            #print(response.json())
-            self._blockchain = self._copy(response.json())
-
-            response = requests.get(f'http://{p}/memoryPool')
-            for i in response.json()['transaction']:
-                t = Transaction(i['origin'],i['key'],i['value'],i['timestamp'])
-                self._memoryPool.append(t)
-            #for i in self._memoryPool:
-            #    print(i)
-            print("%%%%%%%%%%%%%%%%%%%% INSIDE BOOTSTRP")
-            print(self._blockchain.rep())
-            self._ready = True
+            try:
+                response = requests.get(f'http://{address}/peers')
+                if response.status_code == 200:
+                    self.peers.append(address)
+                    self.peers += response.json()
+                    if self.address in self.peers:
+                        self.peers.remove(self.address)
+                else:
+                    print("bootstrapping procedure cannot get peers")
+                    return
                 
-            """except Exception:
+                chain_sizes = {}
+
+                for peer in self.peers:
+                    response = requests.get(f'http://{peer}/addNewNode?address={self.address}')
+                    chain_sizes[peer] = response.json()
+
+                #retrieve longest chain size in the network
+                longestSize = max(chain_sizes.values())
+                #retrieve a node with the longest chain size
+                p = list(chain_sizes.keys())[list(chain_sizes.values()).index(longestSize)]
+                #ask key chain to that node
+                response = requests.get(f'http://{p}/keyChain')
+                self.blockchain = Blockchain(self,response.json())
+                #ask memoryPool to that node
+                response = requests.get(f'http://{p}/memoryPool')
+                for t in json.loads(response.json()):
+                    self.memoryPool.append(Transaction(str(t).replace('\'','\"')))
+                print(self.memoryPool)
+                print(self.blockchain)
+                self.ready = True
+                
+            except Exception as e:
                 print("impossible de contazcter le noeud maybee crash ?")
-                exit(1)"""
-
-    def copyBlockchain(self, response):
-        print(response)
-        print(type(response))
-        return Blockchain(self)
-
+                print(e)
+                exit(1)
 
     def put(self, key, value, time,block=True):
             """Puts the specified key and value on the Blockchain.
             The block flag indicates whether the call should block until the value
             has been put onto the blockchain, or if an error occurred.
             """
-
-            transaction = Transaction(self._address, key, value,time)
+            transaction = Transaction(self.address, key, value,time)
             #Add dans pool
             self.add_transaction(transaction)
-            callback = Callback(transaction, self._blockchain)
-            if block:
-                callback.wait()
-                return callback
-            return True
-    
-    def _broadcastTrans(self,transaction):
-        
-        for peer in self._peers:
-            try:
-                requests.get(f'http://{peer}/addTransaction?transaction={str(transaction.rep())}')
             
-            except Exception:
-                pass
+            if block:
+                callback = Callback(transaction, self.blockchain)
+                callback.wait()
+                mess = f'({key},{value} added to the store at index {callback.index} at {callback.time})'
+                print(mess)
+                return
+            mess = f'({key},{value} will be eventually added to the store)'
+            print(mess)
+            return
 
     def add_transaction(self, transaction):
             """Adds a transaction to your current list of transactions,
@@ -121,81 +109,150 @@ class Peer:
             If the `mine` method is called, it will collect the current list
             of transactions, and attempt to mine a block with those.
             """
+            if self.experiment_throughput:
+                if (datetime.now() - self.start).seconds > 180:
+                    print("DATETIME > 180")
+                    return
             #met dans la pool
-            if transaction not in self._memoryPool:
-                self._memoryPool.append(transaction)
-                self._broadcastTrans(transaction)
+            if transaction not in self.memoryPool and transaction not in self.transactions_historic:
+                self.memoryPool.append(transaction)
+                self.transactions_historic.append(transaction)
+                self.broadcastTrans(transaction)
+            else:
+                print("++++++++++++++++++++++++ DISCARD TRANS")
             #Broadcast
+    
+    def handle_memoryPool(self, block):
 
-    def _broadcastBlock(self,block):
-        
-        for peer in self._peers:
+        return_memoryPool = self.memoryPool.copy()
+        for t in block.transactions:
+            
+            for t_mp in self.memoryPool: 
+                if t.key == t_mp.key and t.value == t_mp.value \
+                    and t.timestamp == t_mp.timestamp and \
+                    t_mp in return_memoryPool:
+                        return_memoryPool.remove(t_mp)
+
+        self.memoryPool = return_memoryPool.copy()
+
+
+    def consensus(self,block, address):
+
+        index_last_block = self.blockchain.last_block.index
+
+        if block.index - index_last_block >= 2:
+
             try:
-                requests.get(f'http://{peer}/addNewBlock?block={str(block.rep())}')
+                response = requests.get(f'http://{address}/keyChain')
+                self.blockchain = Blockchain(self,response.json())
 
+                return True
+
+            except Exception:
+                pass
+
+        return False
+    
+    def broadcastTrans(self,transaction):
+        
+        for peer in self.peers:
+            try:
+                requests.get(f'http://{peer}/addTransaction?transaction={str(transaction)}')
+            except Exception:
+                pass
+
+    def broadcastBlock(self,block):
+        
+        for peer in self.peers:
+            try:
+                #requests.get(f'http://{peer}/addNewBlock?block={str(block)}?address={self.address}')
+                requests.get(f'http://{peer}/addNewBlock?block={str(block)}')
             except Exception:
                 pass
 
     def add_block (self, block):
 
-        if block not in self._blockchain._blocks:
-                print("--------------------------- ENTERED")
-                self._blockchain.add_block(block)
-                self._broadcastBlock(block)
-        else:
-            print("++++++++++++++++++++++++ DISCARD")
-            #Broadcast
+        self.mining = False
+        self.handle_memoryPool(block)
         
+        if block not in self.blockchain.blocks:
+                if(self.blockchain.add_block(block)):
 
-            
-            
+                    self.broadcastBlock(block)
 
+        else:
+            print("++++++++++++++++++++++++ DISCARD BLOCK")
+        
+        print(" -- AFTER ADDING A BLOCK, THE BLOCKCHAIN IS : -- ")
+        print(" ")
+        print(self.blockchain)
+        print(" ")
+        self.mining = True
+
+       
     def mine(self):
-            """Implements the mining procedure."""
+        """Implements the mining procedure."""
 
-            if not self._miner:
-                return False
-            
-            if self._memoryPool == [] or not self._ready:
-                time.sleep(1)
-                print("skudala sku")
-                return self.mine()
-
-            print("-- Entré dans mine")
-            print(self._blockchain)
+        if not self.miner:
+            return False
+        a, b, c = self.mining, self.memoryPool == [], self.ready
+        #if not self.mining or self.memoryPool == [] or not self.ready:
+        #print("Valeur de la fonction f:" + str(c and (not a or b)))
+        #print("Valeur de a,b,c:")
+        #print(a,b,c)
+        if c and (not a or b):
             time.sleep(2)
-            
-            candidate_block = Block(len(self._blockchain._blocks), self._memoryPool, self._blockchain.last_block.hash(), 0, time.asctime())
-            candidate_block._address = self._address
-            print("En train de Compute hash of candidate block and checks if below target")
-            #Computes hash of candidate block and checks if it is below target.
-            while True:
-                hash = candidate_block.hash()
-                if hash.startswith('0' * self._blockchain.difficulty):
+            print("wait trans in pool...")
+            print(self.peers)
+            return self.mine()
+        print(" ")
+        print("------------------")
+        print("-- Start mining...")
+        #print(f"On start mining vu les valeurs de a,b,c")
+        mining_pool = self.memoryPool.copy()
+        candidate_block = Block(len(self.blockchain.blocks),self.address, mining_pool, self.blockchain.last_block._hash,time.asctime())
+        #print("En train de Compute hash of candidate block and checks if below target")
+        #Computes hash of candidate block and checks if it is below target.
+        while True:
+            if self.mining:
+                #print("self.mining est True")
+                hash = candidate_block._hash
+                if hash.startswith('0' * self.blockchain.difficulty):
                     print("Trouvé below target !!!!!!!!!")
-                    # PRBLM : possibilité d'avoir une transac entre temps de la ligne 138 à mtn
-                    self._memoryPool = []
+                    #print(candidate_block.transactions)
 
-                    self._blockchain.add_block(candidate_block)
-                    print("On s'apprête à broadcast")
-                    #Broadcast
+                    if self.experiment_throughput:
+                        if len(self.nb_transactions) == 0:
+                            self.nb_transactions.append(len(candidate_block.transactions))
+                        else:
+                            self.nb_transactions.append(len(candidate_block.transactions) + self.nb_transactions[-1])                        
+                        self.timing.append((datetime.now() - self.start).seconds)
+                        print("Nb transactions:")
+                        print(self.nb_transactions)
+                        print("Timing:")
+                        print(self.timing)
                     
-                    for peer in self._peers:
+                    self.blockchain.add_block(candidate_block)
+                    self.handle_memoryPool(candidate_block)
+                    
+                    for peer in self.peers:
                         try:
                             print("Broadcast à peer " + peer)
-                            #r = requests.post('https://httpbin.org/post', data={'key': 'value'})
-                            #requests.post(f'http://{peer}/addNewBlock', data={'block': candidate_block.rep()})
-                            requests.get(f'http://{peer}/addNewBlock?block={str(candidate_block.rep())}')
+                            requests.get(f'http://{peer}/addNewBlock?block={str(candidate_block)}')
                 
                         except Exception as e:
                             print(e)
-                    print(self._blockchain)
-                    print("-- sortie de mine")
-                    return self.mine()
-                    
-                candidate_block._nonce += 1
-            
+                    #print(self.blockchain)
+                    print("-- End mining")
+                    print("-------------")
+                    print(" ")
 
+                    return self.mine()
+            
+                candidate_block.nonce += 1
+            else:
+                return self.mine()
+            
     def retrieve(self, key):
             """Searches the most recent value of the specified key.
 
@@ -204,11 +261,10 @@ class Peer:
             more efficient.
             """
             latest_value = None
-
-            for v in self._blockchain._blocks:
-                if v._transactions != []:
-                    if(v._transactions[0]._key == key):
-                        latest_value = v._transactions[0]._value
+            for b in self.blockchain.blocks:
+                for t in b.transactions:
+                    if(t.key == key):
+                        latest_value = (t.value,t.origin,t.timestamp)
 
             if latest_value != None:
                 print("Latest value for the key : "+key)
@@ -216,53 +272,57 @@ class Peer:
 
             return latest_value
 
-
     def retrieve_all(self, key):
         """Retrieves all values associated with the specified key on the
         complete blockchain.
         """
         values = []
 
-        for v in self._blockchain._blocks:
-            if v._transactions != []:
-                if(v._transactions[0]._key == key):
-                    values.append( v._transactions[0]._value)
+        for b in self.blockchain.blocks:
+            for t in b.transactions:
+                    if(t.key == key):
+                        values.append((t.value,t.origin,t.timestamp))
 
         if values != []:
             print("Values for the key : "+key)
             print(values)
 
         return values
-    
-    def _heartbeat(self, removed):
+ 
+    def heartbeat(self, removed):
         try:
             if not removed:
-                print("-- <3 HEARTBEAT MEASUREMENT <3 --")
-                self._peers_heartbeat = self._peers.copy()
+                #print("-- <3 HEARTBEAT MEASUREMENT <3 --")
+                self.peers_heartbeat = self.peers.copy()
             
-            print(self._peers) 
-            print(self._peers_heartbeat)
-            print(self._heartbeat_count)
-            print(" ")
-            for peer in self._peers_heartbeat:
+            #print(self.peers) 
+            #print(self.peers_heartbeat)
+            #print(self.heartbeat_count)
+            #print(" ")
+            for peer in self.peers_heartbeat:
                 current_peer = peer
                 requests.get(f'http://{peer}/heartbeat')
-                self._heartbeat_count[peer] = 0
+                self.heartbeat_count[peer] = 0
 
             
         except Exception:
-            print('A peer doesn\'t respond')
+            #print('A peer doesn\'t respond')
 
-            self._peers_heartbeat.remove(current_peer)
-            self._heartbeat_count[current_peer] += 1
+            self.peers_heartbeat.remove(current_peer)
+            self.heartbeat_count[current_peer] += 1
 
-            if self._heartbeat_count[current_peer] == 10:
-                self._peers.remove(current_peer)
-                del self._heartbeat_count[current_peer]
+            if self.heartbeat_count[current_peer] == 10:
+                self.peers.remove(current_peer)
+                del self.heartbeat_count[current_peer]
 
-            self._heartbeat(1)
+            self.heartbeat(1)
 
-
+    def __str__(self) -> str:
+        return f'\"{self.address}\"'
+        
+    def __repr__(self) -> str:
+        return f'\"{self.address}\"'
+     
 #callback = Callback(transaction, self._blockchain)
 class Callback:#retiens que cette transaction a été ajoutée
     #called whenever the key has been added to the system, or if a failure occurred.
@@ -271,8 +331,8 @@ class Callback:#retiens que cette transaction a été ajoutée
     callback attend jusque la transaction soit mise sur la chaîne
     """
     def __init__(self, transaction, blockchain):
-        self._transaction = transaction
-        self._blockchain = blockchain
+        self.transaction = transaction
+        self.blockchain = blockchain
 
     def wait(self):
         """Wait until the transaction appears in the blockchain."""
@@ -284,12 +344,13 @@ class Callback:#retiens que cette transaction a été ajoutée
     def completed(self):
         """Polls the blockchain to check if the data is available."""
         for block in self.blockchain.blocks:
-            if block.contains(self._transaction):
+            if block.contains(self.transaction):
+                self.time = block.timestamp
+                self.index = block.index
                 return True
         return False
 
-
-class perpetualTimer():
+class PerpetualTimer():
 
    def __init__(self,t,hFunction):
       self.t=t
@@ -313,4 +374,5 @@ class perpetualTimer():
 if __name__ == "__main__":
     p = Peer(f'localhost:{5000}',False,difficulty=5)
     
-    print(p._blockchain.rep())
+    print(p.blockchain)
+    

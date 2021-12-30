@@ -1,28 +1,47 @@
 from hashlib import sha256
 import json
-import time
-from transaction import Transaction, Transactions
+from transaction import Transaction
 
-class Block:
+class Block(dict):
     
-    def __init__(self, index, transactions,previous_hash,nonce=None,timestamp=time.asctime()):
-        self._index = index
-        self._transactions = transactions #list of transactions
-        self._previous_hash = previous_hash #Hash pointer to the previous block
-        self._timestamp = timestamp
-        self._address = None
-        self._nonce = nonce
-    
-    def hash(self):
-        block_string = json.dumps(self._dict(), sort_keys=True)
-        hash_ = sha256(block_string.encode()).hexdigest()
-        return hash_
-    
+    def __init__(self,*args):
+        """[summary]
+        Args:
+            index ([int]): [description]
+            address ([string]) : [description]
+            transactions ([Transaction]): [description]
+            previous_hash ([string]): [description]
+            timestamp ([type]): [description]
+        """
+        if len(args)==5: 
+            self.index = args[0]
+            self.address = args[1]
+            self.transactions = args[2] #list of transactions
+            self.previous_hash = args[3] #Hash pointer to the previous block
+            self.timestamp = args[4]
+            self.nonce = 0
+            dict.__init__(self,index=args[0],address=args[1],transactions=args[2],\
+                previous_hash=args[3],timestamp=args[4],nonce=0)
+        elif len(args)==1:
+            b = json.loads(args[0])
+            self.index = b['index']
+            self.address = b['address']
+            transactions = []
+            for t in b['transactions']:
+                transactions.append(Transaction(str(t).replace('\'','\"')))
+            self.transactions = transactions #list of transactions
+            self.previous_hash = b['previous_hash'] #Hash pointer to the previous block
+            self.timestamp = b['timestamp']
+            self.nonce = b['nonce']
+            dict.__init__(self,index=b['index'],address=b['address'],transactions=transactions,\
+                previous_hash=b['previous_hash'],timestamp=b['timestamp'],nonce=b['nonce'])
+
     @property
-    def _proof(self):
-        """Return the proof of the current block."""
-        return self.hash()
-
+    def _hash(self):
+        block_string = json.dumps(self.__dict__, sort_keys=True)
+        hash = sha256(block_string.encode()).hexdigest()
+        return hash
+    
     def get_transactions(self):
         """Returns the list of transactions associated with this block."""
         return self._transactions
@@ -31,80 +50,60 @@ class Block:
         """Returns a boolean expressing wether or not the transaction is contained in the block."""
         return transaction in self.transactions
     
-    def rep(self):
+    def __str__(self) -> str:
+        return str(self.__dict__).replace('\'','\"')
         
-        d = {
-        'address': self._address,
-        'index': self._index,
-        'transactions': self.rep_transactions(),
-        'proof':self._proof,
-        'previous_hash': self._previous_hash,
-        'timestamp': self._timestamp,
-        'nonce': self._nonce
-        }
-        return d
+    def __repr__(self) -> str:
+        return str(self.__dict__).replace('\'','\"')
     
-    def _dict(self):
-        
-        d = {
-        'address': self._address,
-        'index': self._index,
-        'transactions': self.rep_transactions(),
-        'previous_hash': self._previous_hash,
-        'timestamp': self._timestamp,
-        'nonce': self._nonce
-        }
-        return d
-
     def __eq__(self, __o: object) -> bool:
         
-        if self._index == __o._index and self._transactions == __o._transactions and \
-            self._previous_hash ==__o._previous_hash and self._timestamp == __o._timestamp \
-            and self._address == __o._address and self._nonce == __o._nonce:
+        if self.index == __o.index and self.transactions == __o.transactions and \
+            self.previous_hash ==__o.previous_hash and self.timestamp == __o.timestamp \
+            and self.address == __o.address and self.nonce == __o.nonce:
            return True
         else:
             return False
-    
-    def rep_transactions(self):
-        l = []
-        for i in self._transactions:
-            l.append(i.rep())
-        return l
-
 
 class Blockchain:
 
-    def __init__(self,peer,difficulty=None,blocks=None):
+    def __init__(self,*args):
+        """[summary]
+        Args:
+            peer ([string]): [description]
+            difficulty ([int]): [description]
+            blocks ([Block], optional): [description]. Defaults to None.
+        """
+        if len(args)==3:
+            self.peer = args[0]
+            self.difficulty = args[1]
+            self.blocks = [args[2]]
+        elif len(args)==2:
+            c = json.loads(args[1])
+            self.peer = args[0]
+            self.difficulty = c['difficulty']
+            self.blocks = []
+            for b in c['blocks']:
+                self.blocks.append(Block(str(b).replace('\'','\"')))
         
-        self._difficulty = difficulty
-        self._blocks = None
-        if blocks:
-            #create from the dictionnary of bootstrap procedure
-            self._copy(blocks)
-        else:
-            self._blocks = []
-        
-        self._pasdinspi = [] #contents blocks mined at the same times
-        self._peer = peer
+        #self._pasdinspi = [] #contents blocks mined at the same times
+    
+    def __len__(self):
+        return len(self.blocks)
+
     @property
     def last_block(self):
-        return self._blocks[-1]
-    @property
-    def difficulty(self):
-        """Returns the difficulty level."""
-        return self._difficulty
+        return self.blocks[-1]
 
     def add_block(self, block):
         """Check if block is valid"""
         #Is previous hash the correct one ?
-        #rajouter cas ou pluseir block mine en meme temps
-        if not block._previous_hash == self.last_block.hash():
+        if not block.previous_hash == self.last_block._hash:
             return False
         #Is proof valid ?
-        hash_ = block.hash()
-        if not hash_.startswith('0' * self.difficulty):
+        if not block._hash.startswith('0' * self.difficulty):
             return False
-        self._blocks.append(block)
+        self.blocks.append(block)
         return True
 
     def is_valid(self):
@@ -119,46 +118,48 @@ class Blockchain:
         #en gros gere le consensuc extend la chain avec le bon blok en fct du suivant et readd les transtion au peers
         raise NotImplementedError
     
-    def _copy(self,rep):
-        #cree l'objet block chain with a rep dic
-        self._difficulty = int(rep['difficulty'])
-        self._blocks = []
-        for i in rep['keychain']:
-            id = i['index']
-            add = i['address']
-            transactions = []
-            for j in i['transactions']:
-                o = j['origin']
-                k = j['key']
-                v = j['value']
-                ts = j['timestamp']
-                t = Transaction(o,k,v,ts)
-                transactions.append(t)
-            phash = i['previous_hash']
-            n = i['nonce']
-            tss = i['timestamp']
-            b = Block(id,transactions,phash,n,tss)
-            b._address = i['address']
-            self._blocks.append(b)
-    
-    def rep(self):
-        l = []
-        for i in self._blocks:
-            l.append(i.rep())
-        d = {
-            'difficulty': self._difficulty,
-            'keychain': l
-        }
-        return d
-    
-    def __str__(self):
-        return str(self.rep())
-    
-
-
+    def __repr__(self) -> str:
+        return str(self.__dict__).replace('\'','\"')
+        
+    def __str__(self) -> str:
+        return str(self.__dict__).replace('\'','\"')
 
 if __name__ == "__main__":
-    #bc = Blockchain(0,0)
-    b = Block(0,[],"0")
-    print(b.rep())
+    t = Transaction('l:500','ab','cd','mtn')
+    b = Block(0,'l:5000',[t,t],"0","mtn")
+    print([b,b])
+    print(b._hash)
+    s = '''{
+        "index": 0,
+        "address": "l:5000",
+        "transactions":
+            [
+                {
+                "origin": "l:500",
+                "key": "ab",
+                "value": "cd",
+                "timestamp": "mtn"
+                }, 
+                {"origin": "l:500",
+                "key": "ab",
+                "value": "cd",
+                "timestamp": "mtn"
+                }
+            ],
+        "previous_hash": "0",
+        "timestamp": "mtn",
+        "nonce": 0
+        }'''
+    b = Block(s)
+    print([b,b])
+    print(b._hash)
+    print("##############################")
+    c = Blockchain('l:23',5,b)
+    c.blocks.append(b)
+    print(c)
+    c = Blockchain("l:12",str(c))
+    print(c)
+    
+
+
     

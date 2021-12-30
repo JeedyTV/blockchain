@@ -22,13 +22,13 @@
             </form>
 
             <form action="" method="post">
-                <input autocomplete="off" type="text" id="fname" name="fname" value="">
-                <input class="button" type="submit" value="RETRIEVE">
+                <input autocomplete="off" type="text" id="fname" name="key" value="">
+                <input class="button" type="submit" name="RETRIEVE" value="RETRIEVE">
             </form>
 
             <form action="" method="post">
-                <input autocomplete="off" type="text" id="fname" name="fname" value="">
-                <input class="button" type="submit" value="RETRIEVE ALL">
+                <input autocomplete="off" type="text" id="fname" name="key" value="">
+                <input class="button" type="submit" name="RETRIEVE ALL" value="RETRIEVE ALL">
             </form>
 
             <form action="" method="post">
@@ -36,7 +36,21 @@
             </form>
         </div>
         <div class="right">
-
+            {% if p %}
+                <p>User has some peers</p>
+                {% for peer in p %}
+                    <li>{{ peer }}</li>
+                {% endfor %}
+            {% endif %}
+            {% if retrieve_key %}
+                <p>The latest value for the specified key is {{ retrieve_key }} </p>
+            {% endif %}
+            {% if retrieve_keys %}
+                <p>The values for the specified key are</p>
+                {% for key in retrieve_keys %}
+                    <li>{{ key }}</li>
+                {% endfor %}
+            {% endif %}
         </div>
     </div>
 

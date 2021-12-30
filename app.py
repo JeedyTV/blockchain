@@ -3,7 +3,7 @@ from blockchain import Block
 from flask import Flask, render_template,request,jsonify
 from peers import Peer
 from logo import LOGO
-from transaction import Transaction, Transactions
+from transaction import Transaction
 import json
 import time
 from colorama import init
@@ -11,23 +11,31 @@ from termcolor import cprint
 from pyfladesk import init_gui
 import threading 
 from threading import Timer,Thread,Event
-from routes import *
-
+import logging
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR) #To remove Flask messages in the console
 init()
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
         "KeyChain - An overengineered key-value store "
         "with version control, powered by fancy linked-lists.")
 
-    parser.add_argument("--miner", type=bool, default=False, nargs='?',
-                        const=True, help="Starts the mining procedure.")
+    parser.add_argument("--miner", type=str, default='False', 
+                        help="Starts the mining procedure.")
     parser.add_argument("--bootstrap", type=str,default=None,
                         help="Sets the address of the bootstrap node.")
     parser.add_argument("--difficulty", type=int, default=5,
                         help="Sets the difficulty of Proof of Work, only has "
                              "an effect with the `--miner` flag has been set.")
     parser.add_argument("--port", type=int,required=True,help="")
+
+    parser.add_argument("--throughput", type=str,default='False',help="")
+
+    parser.add_argument("--attacker", type=str,default='False',help="")
+
+    parser.add_argument("--victim", type=str,default='False',help="")
 
     arguments, _ = parser.parse_known_args()
 
@@ -37,111 +45,108 @@ app = Flask(__name__)
 
 @app.route('/',methods=['post', 'get'])
 def index():
-    message = ''
+
     if request.method == 'POST':
         if request.form.get('s'):
             value = request.form.get('value')  # access the data inside 
             key = request.form.get('key')
-            print(value,key)
-            p.put(key,value,time.asctime(),False)
+            call =  request.form.get('callback')
+            if call :
+                p.put(key,value,time.asctime(),True) # add call back to user
+            else:
+                p.put(key,value,time.asctime(),False)
 
         if request.form.get('RETRIEVE'):
             key = request.form.get('key')
             retrieved_key = p.retrieve(key)
-            return render_template('test.html',retrieve_key = retrieved_key)
+            return render_template('test2.html',retrieve_key = retrieved_key)
         
         if request.form.get('RETRIEVE ALL'):
             key = request.form.get('key')
             retrieved_keys = p.retrieve_all(key)
-            return render_template('test.html',retrieve_keys = retrieved_keys)
-
-        if request.form.get('NETWORK'):
-            return render_template('test.html',p=p._peers)
-        #message = 'value add to the block'
+            return render_template('test2.html',retrieve_keys = retrieved_keys)
         
-    #return render_template('test.html', message=message)
-    return render_template('test.html')
+        if request.form.get('NETWORK'):
+            return render_template('test2.html',p=p.peers)
+        
+    return render_template('test2.html')
+
+@app.route('/testing',methods=['post', 'get'])
+def index2():
+    call = False
+    data = request.get_json(force=True)
+    key = data['key']
+    value = data['value']
+    if call:
+        p.put(key,value,time.asctime(),True) # add call back to user
+    else:
+        p.put(key,value,time.asctime(),False)
+        
+    return {}
+
+@app.route('/peers')
+def send_peers():
+    return jsonify(p.peers)
+
+@app.route('/addNewNode')
+def addNewNode():
+    new_peer= request.args.get('address')
+    if new_peer not in p.peers:
+        p.peers.append(new_peer)
+        p.heartbeat_count[new_peer] = 0
+    return jsonify(len(p.blockchain))
+    #return jsonify(p.blockchain.last_block._hash)
+
+@app.route('/keyChain')
+def send_keyChain():
+    return jsonify(str(p.blockchain))
+
+@app.route('/memoryPool')
+def sendMemoryPool():
+    return jsonify(str(p.memoryPool))
+
+@app.route('/addTransaction')
+def newTransaction():
+    print("new trans")
+    t = request.args.get('transaction').replace("\'",'\"')
+    p.add_transaction(Transaction(t))
+    return jsonify({})
+
+@app.route('/heartbeat')
+def send_heartbeat():
+    return jsonify({'address': p.address})
+  
+@app.route('/addNewBlock')
+def addNewBlock():
+    print("new block")
+    b = request.args.get('block').replace("\'",'\"')
+    print("Peer " + str(p.address) + " arrête de mine")
+    p.mining = False
+
+    bl = Block(b)
+    address = bl.address
+    # si consensus False (pas de consensus), pas de probleme tu peux add 
+    if not p.consensus(bl,address):
+
+        p.add_block(bl)
+        print("Peer " + str(p.address) + " se remet à mine car il vient d'ajouter le mined block qu'on lui a broadcast")
+        p.mining = True
+
+    return jsonify(dict())
+
 
 @app.route('/sku')
 def update_peers():
 
     return jsonify({'e':'biatch'})
 
-@app.route('/addTransaction')
-def newTransaction():
-    print("new trans")
-    t = request.args.get('transaction').replace("\'",'\"')
-    t = json.loads(t)
-    t = Transaction(t['origin'],t['key'],t['value'],t['timestamp'])
-    p.add_transaction(t)
-    return jsonify({'state':'recu'})
-
-@app.route('/peers')
-def send_peers():
-    return jsonify(p._peers)
-
-@app.route('/heartbeat')
-def send_heartbeat():
-    return jsonify({'address': p._address})
-
-@app.route('/keyChain')
-def send_keyChain():
-    print("**************************** KEYCHAIN ")
-    print(p._blockchain.rep())
-    return jsonify(p._blockchain.rep())
-
-@app.route('/addNewNode')
-def addNewNode():
-    #print('b',p._peers)
-    new_peer= request.args.get('address')
-    if new_peer not in p._peers:
-        p._peers.append(new_peer)
-        p._heartbeat_count[new_peer] = 0
-    #print(f" {new_peer} wants to access the network")
-    #print('a',p._peers)
-    #print(type(p._blockchain))
-    #print(p._blockchain.rep())
-    return jsonify(p._blockchain.last_block.hash())
-    
-@app.route('/memoryPool')
-def sendMemoryPool():
-    m = []
-    for i in p._memoryPool:
-        m.append(i.rep())
-    return jsonify({'transaction':m})
-    
-@app.route('/addNewBlock')
-def addNewBlock():
-    print("Entré dans addNewBlock")
-    
-    nb = request.args.get('block').replace("\'",'\"')
-    print(nb)
-    print(type(nb))
-    print("---")
-    nb = json.loads(nb)
-    transactions = []
-    for t in nb['transactions']:
-        t_ = Transaction(t['origin'],t['key'],t['value'],t['timestamp'])
-        transactions.append(t_)
-
-
-    nb = Block(nb['index'], transactions , nb['previous_hash'] , 
-            nb['nonce'], nb['timestamp'] )
-    nb._address= p._address
-    p.add_block(nb)
-    
-
-    #print(new_block)
-    #print("Type new_block")
-    #print(type(new_block))
-    #p._blockchain.add_block(new_block)
-    return jsonify(dict())
-
 if __name__ == "__main__":
     arguments = parse_arguments()
     
     port = arguments.port
-    miner = arguments.miner
+    miner = False
+    if arguments.miner == 'True':
+        miner = True
     difficulty = arguments.difficulty
     bootstrap = arguments.bootstrap
     
@@ -151,17 +156,15 @@ if __name__ == "__main__":
     else:
         #bootstrap peer  
         p = Peer(f'localhost:{port}',miner,bootstrap=bootstrap)
-     
-    cprint(LOGO, 'red')
+    
+    p.experiment_throughput = arguments.throughput
+    p.experiment_attacker = arguments.attacker
+    p.experiment_victim = arguments.victim
+    
+    cprint(LOGO,'red')
     thread = threading.Timer(0, p.mine)
     thread.daemon = True
     thread.start()
     
-
     app.run(port=port)
-    
-    
-    #init_gui(app, port=port, width=1000, height=900,
-    #         window_title=f'localhost:{port}', icon="static/favicon-32x32.png")
-
-    
+        

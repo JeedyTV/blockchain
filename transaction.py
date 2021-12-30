@@ -1,53 +1,48 @@
-import time
-class Transaction:
+import json
+
+class Transaction(dict):
     
-    def __init__(self,origin,key,value,timestamp=time.asctime()):
+    def __init__(self,*args):
         """A transaction, in our KV setting. A transaction typically involves
         some key, value and an origin (the one who put it onto the storage).
+        Args:
+        origin ([string]): [description]
+        key ([string]): [description]
+        value ([string]): [description]
+        timestamp ([string], optional): [description]. Defaults to time.asctime().
         """
-        self._origin = origin #adress of the peer
-        self._key = key
-        self._value = value
-        self._timestamp = timestamp
-
-    def rep(self):
-        d = {
-            'origin': self._origin,
-            'key': self._key,
-            'value': self._value,
-            'timestamp': self._timestamp
-        }
-        return d
+        if len(args)==4:
+            self.origin = args[0] #adress of the peer
+            self.key = args[1]
+            self.value = args[2]
+            self.timestamp = args[3]
+            dict.__init__(self,origin=args[0],key=args[1],value=args[2],timestamp=args[3])
+        elif len(args)==1:
+            t = json.loads(args[0])
+            self.origin = t['origin'] #adress of the peer
+            self.key = t['key']
+            self.value = t['value']
+            self.timestamp = t['timestamp']
+            dict.__init__(self,origin=t['origin'],key=t['key'],value=t['value'],timestamp=t['timestamp'])
     
     def __str__(self) -> str:
-        
-        return str(self.rep())
+        return str(self.__dict__).replace('\'','\"')
     
+    def __repr__(self) -> str:
+        return str(self.__dict__).replace('\'','\"')
+        
     def __eq__(self, __o: object) -> bool:
         
-        if self._origin == __o._origin and self._key == __o._key and self._value ==__o._value and self._timestamp == __o._timestamp:
+        if self.origin == __o.origin and self.key == __o.key \
+            and self.value ==__o.value and self.timestamp == __o.timestamp:
            return True
         else:
             return False
 
-
-class Transactions:
-
-    def __init__(self):
-        
-        self._transactions = []
-        
-
-    @property
-    def last_transactions(self):
-        return self._transactions[-1]
-
-    def add_transaction(self, transaction):
-        self._transactions.append(transaction)
-
-
+if __name__ == '__main__':
+    t = Transaction('l:500','ab','cd','mtn')
+    print([t,t])
+    s = '{"origin": "l:500", "key": "ab", "value": "cd", "timestamp": "mtn"}'
+    t = Transaction(s)
+    print([t,t])
     
-    
-
-
-
