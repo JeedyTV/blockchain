@@ -112,17 +112,36 @@ class Blockchain:
         Meaning, are the sequence of hashes, and the proofs of the
         blocks correct?
         """
-        raise NotImplementedError
-    
-    def psdinspi(self):
-        #en gros gere le consensuc extend la chain avec le bon blok en fct du suivant et readd les transtion au peers
-        raise NotImplementedError
+
+        previous_block = self.blocks[0]
+        
+        i = 1
+
+        while i < len(self.blocks):
+            
+            block = self.blocks[i]
+
+            #Is previous hash the correct one ?
+            if not block.previous_hash == previous_block._hash:
+                return False
+            #Is proof valid ?
+            if not block._hash.startswith('0' * self.difficulty):
+                return False
+            
+            previous_block = block
+            i += 1
+
+        return True
     
     def __repr__(self) -> str:
         return str(self.__dict__).replace('\'','\"')
         
     def __str__(self) -> str:
         return str(self.__dict__).replace('\'','\"')
+
+    def __eq__(self, __o: object) -> bool:
+        
+        return self.difficulty == __o.difficulty and self.blocks == __o.block
 
 if __name__ == "__main__":
     t = Transaction('l:500','ab','cd','mtn')
